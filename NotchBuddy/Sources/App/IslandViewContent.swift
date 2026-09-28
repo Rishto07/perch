@@ -146,6 +146,7 @@ struct OverviewView: View {
                     NSWorkspace.shared.open(url)
                 }
             } else {
+                #if !APPSTORE
                 let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2",
                                          "net.kovidgoyal.kitty", "com.mitchellh.ghostty"]
                 if let hit = terminalBundleIds.compactMap({ id in
@@ -153,6 +154,7 @@ struct OverviewView: View {
                 }).first {
                     hit.activate(options: .activateIgnoringOtherApps)
                 }
+                #endif
             }
         }
     }
@@ -287,6 +289,7 @@ struct FinishedView: View {
                 Text(state.focusTask?.steps.last ?? "Session finished")
                     .font(.system(size: 15, weight: .semibold))
                 HStack(spacing: 8) {
+                    #if !APPSTORE
                     PrimaryButton("Open terminal") {
                         let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2", "net.kovidgoyal.kitty", "com.mitchellh.ghostty"]
                         let activated = terminalBundleIds.compactMap { id in
@@ -297,6 +300,7 @@ struct FinishedView: View {
                         }
                         NotificationCenter.default.post(name: .islandCollapse, object: nil)
                     }
+                    #endif
                     SecondaryButton("OK") {
                         NotificationCenter.default.post(name: .islandCollapse, object: nil)
                     }
@@ -604,7 +608,7 @@ struct MailView: View {
             // API key set but no sender — guide user instead of silent fallback
             statusMsg = "Set sender address in Settings."
         } else {
-            // No Resend — fallback to Apple Mail
+            // No Resend — fallback to Mail
             sendViaAppleMail(to: to, subject: subj)
         }
     }
@@ -642,17 +646,31 @@ struct MailView: View {
     }
 
     private func sendViaAppleMail(to: String, subject: String) {
+        #if APPSTORE
+        // App Store: no AppleScript — use NSSharingService to compose (user sends manually)
+        guard let service = NSSharingService(named: .composeEmail) else {
+            statusMsg = "Mail not available."
+            return
+        }
+        var items: [Any] = [bodyText.isEmpty ? " " : bodyText]
+        if let url = state.droppedFile?.url,
+           FileManager.default.fileExists(atPath: url.path) {
+            items.append(url)
+        }
+        service.recipients = [to]
+        service.subject = subject
+        service.perform(withItems: items)
+        onSuccess(recipient: to)
+        #else
         func asEscape(_ s: String) -> String {
             s.replacingOccurrences(of: "\\", with: "\\\\")
              .replacingOccurrences(of: "\"", with: "\\\"")
         }
 
-        // Build body as AppleScript expression so newlines survive string boundary
         let bodyLines = bodyText.isEmpty ? [""] : bodyText.components(separatedBy: "\n")
         let bodyExpr = bodyLines.map { "\"\(asEscape($0))\"" }.joined(separator: " & linefeed & ")
-            + " & return & return"   // trailing newlines ensure there's a paragraph to attach after
+            + " & return & return"
 
-        // Verify file exists before referencing it
         let attachBlock: String
         if let url = state.droppedFile?.url,
            FileManager.default.fileExists(atPath: url.path) {
@@ -678,6 +696,7 @@ struct MailView: View {
         NSAppleScript(source: script)?.executeAndReturnError(&err)
         if err == nil { onSuccess(recipient: to) }
         else { statusMsg = "Mail error: \(err?["NSAppleScriptErrorMessage"] as? String ?? "unknown")" }
+        #endif
     }
 
     private func onSuccess(recipient: String) {
