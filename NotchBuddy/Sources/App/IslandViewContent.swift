@@ -207,10 +207,8 @@ struct ApprovalView: View {
                     PrimaryButton("Allow") {
                         HookServer.shared.sendApprovalDecision("allow")
                     }
-                    if !state.alwaysAllow {
-                        SecondaryButton("Always") {
-                            HookServer.shared.sendApprovalDecision("always")
-                        }
+                    SecondaryButton("Always") {
+                        HookServer.shared.sendApprovalDecision("always")
                     }
                 }
             }
