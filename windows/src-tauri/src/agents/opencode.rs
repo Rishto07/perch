@@ -19,11 +19,9 @@ fn opencode_registered(config: &Value) -> bool {
         .get("plugin")
         .and_then(Value::as_array)
         .map(|plugins| {
-            plugins.iter().any(|p| {
-                p.as_str()
-                    .map(|s| s.contains("perch"))
-                    .unwrap_or(false)
-            })
+            plugins
+                .iter()
+                .any(|p| p.as_str().map(|s| s.contains("perch")).unwrap_or(false))
         })
         .unwrap_or(false)
 }
@@ -35,9 +33,10 @@ fn opencode_registered_config(config: &Value) -> Value {
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    if !plugins.iter().any(|p| {
-        p.as_str().map(|s| s.contains("perch")).unwrap_or(false)
-    }) {
+    if !plugins
+        .iter()
+        .any(|p| p.as_str().map(|s| s.contains("perch")).unwrap_or(false))
+    {
         plugins.push(json!("./plugins/perch.ts"));
     }
     root.insert("plugin".into(), Value::Array(plugins));
@@ -150,7 +149,10 @@ pub(super) fn opencode_write(install: bool, fingerprint: &str) -> Result<String,
         hooks::current_fingerprint(&config_path)
     );
     if expected != fingerprint {
-        return Err("Something changed since the preview. Nothing was written — review the new diff.".into());
+        return Err(
+            "Something changed since the preview. Nothing was written — review the new diff."
+                .into(),
+        );
     }
     let mut backups = Vec::new();
     if install {
@@ -182,9 +184,7 @@ pub(super) fn opencode_write(install: bool, fingerprint: &str) -> Result<String,
             if let Some(plugins) = root.get("plugin").and_then(Value::as_array).cloned() {
                 let kept: Vec<Value> = plugins
                     .iter()
-                    .filter(|p| {
-                        !p.as_str().map(|s| s.contains("perch")).unwrap_or(false)
-                    })
+                    .filter(|p| !p.as_str().map(|s| s.contains("perch")).unwrap_or(false))
                     .cloned()
                     .collect();
                 if kept.len() != plugins.len() {

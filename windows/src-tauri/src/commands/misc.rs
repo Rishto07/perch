@@ -3,11 +3,7 @@ use std::process::Command;
 
 use tauri::AppHandle;
 
-use crate::{
-    integrations,
-    log,
-    shared::CREATE_NO_WINDOW,
-};
+use crate::{integrations, log, shared::CREATE_NO_WINDOW};
 
 #[tauri::command]
 pub(crate) fn open_url(url: String) {

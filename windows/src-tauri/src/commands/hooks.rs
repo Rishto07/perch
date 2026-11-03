@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Emitter, State};
 
-use crate::{hooks, hooks::HookPreview, hooks::HookStatus, shared::Shared, settings};
+use crate::{hooks, hooks::HookPreview, hooks::HookStatus, settings, shared::Shared};
 
 #[tauri::command]
 pub(crate) fn hooks_status() -> HookStatus {

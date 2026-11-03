@@ -13,6 +13,10 @@ pub(crate) fn agents_preview(agent: String, install: bool) -> Result<HookPreview
 
 /// Only ever called from an explicit click in the settings window.
 #[tauri::command]
-pub(crate) fn agents_apply(agent: String, install: bool, fingerprint: String) -> Result<String, String> {
+pub(crate) fn agents_apply(
+    agent: String,
+    install: bool,
+    fingerprint: String,
+) -> Result<String, String> {
     agents::write(&agent, install, &fingerprint)
 }

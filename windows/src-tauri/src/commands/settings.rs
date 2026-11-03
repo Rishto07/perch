@@ -5,8 +5,7 @@ use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::{
-    hooks,
-    integrations,
+    hooks, integrations,
     island::{self, ScreenInfo},
     settings::{self, Settings},
     shared::Shared,
@@ -49,7 +48,11 @@ pub(crate) fn save_settings(app: AppHandle, shared: State<Shared>, settings: Set
     }
     if autostart_changed {
         let manager = app.autolaunch();
-        let result = if settings.autostart { manager.enable() } else { manager.disable() };
+        let result = if settings.autostart {
+            manager.enable()
+        } else {
+            manager.disable()
+        };
         if let Err(err) = result {
             eprintln!("[perch] autostart: {err}");
         }
@@ -78,12 +81,19 @@ pub(crate) fn set_collapsed(app: AppHandle, shared: State<Shared>, collapsed: bo
 /// The front end pushes the island shape; Rust decides click-through from it.
 #[tauri::command]
 pub(crate) fn set_island_rect(shared: State<Shared>, x: f64, y: f64, width: f64, height: f64) {
-    shared.gate.set_rect(island::IslandRect { x, y, w: width, h: height });
+    shared.gate.set_rect(island::IslandRect {
+        x,
+        y,
+        w: width,
+        h: height,
+    });
 }
 
 #[tauri::command]
 pub(crate) fn focus_window(app: AppHandle, focused: bool) {
-    let Some(win) = island::window(&app) else { return };
+    let Some(win) = island::window(&app) else {
+        return;
+    };
     island::set_activating(&win, focused);
     if focused {
         let _ = win.set_focus();

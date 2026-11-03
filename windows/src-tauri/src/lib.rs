@@ -40,7 +40,10 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open".to_string());
         }))
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(Shared {
             settings: Mutex::new(loaded.clone()),
             gate: gate.clone(),
@@ -93,7 +96,10 @@ pub fn run() {
             gate.set_active(true);
             island::spawn_cursor_poll(handle.clone(), gate.clone());
 
-            log::line(format!("--- Perch {} started ---", env!("CARGO_PKG_VERSION")));
+            log::line(format!(
+                "--- Perch {} started ---",
+                env!("CARGO_PKG_VERSION")
+            ));
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
@@ -102,4 +108,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Perch");
 }
-

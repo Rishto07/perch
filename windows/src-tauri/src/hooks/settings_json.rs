@@ -85,7 +85,9 @@ pub(crate) fn read_settings_lossy() -> Value {
 }
 
 pub(crate) fn hook_command(event: &str) -> String {
-    let exe = settings::hook_exe_path().to_string_lossy().replace('\\', "/");
+    let exe = settings::hook_exe_path()
+        .to_string_lossy()
+        .replace('\\', "/");
     format!("\"{exe}\" {event}")
 }
 
@@ -162,8 +164,7 @@ pub(crate) fn without_ours(existing: &Value) -> Value {
     for (event, value) in hooks {
         match value.as_array() {
             Some(list) => {
-                let kept: Vec<Value> =
-                    list.iter().filter(|e| !entry_is_ours(e)).cloned().collect();
+                let kept: Vec<Value> = list.iter().filter(|e| !entry_is_ours(e)).cloned().collect();
                 if !kept.is_empty() {
                     out.insert(event, Value::Array(kept));
                 }
@@ -238,7 +239,9 @@ mod tests {
 
         let pre = after["hooks"]["PreToolUse"].as_array().unwrap();
         assert!(
-            pre.iter().any(|e| serde_json::to_string(e).unwrap().contains("someone-elses-tool.exe")),
+            pre.iter().any(|e| serde_json::to_string(e)
+                .unwrap()
+                .contains("someone-elses-tool.exe")),
             "another tool's hook was dropped"
         );
         assert!(pre.iter().any(entry_is_ours), "our own hook was not added");

@@ -10,7 +10,9 @@ use super::paths::codex_settings_path;
 use super::AgentStatus;
 
 fn codex_hook_command(event: &str) -> String {
-    let exe = settings::hook_exe_path().to_string_lossy().replace('\\', "/");
+    let exe = settings::hook_exe_path()
+        .to_string_lossy()
+        .replace('\\', "/");
     format!("\"{exe}\" {event} codex")
 }
 
@@ -108,9 +110,14 @@ mod tests {
         let after = codex_merged(&existing);
         assert_eq!(after["model"], "gpt-5");
         let pre = after["hooks"]["PreToolUse"].as_array().unwrap();
-        assert!(pre.iter().any(|e| serde_json::to_string(e).unwrap().contains("other-tool.exe")));
+        assert!(pre
+            .iter()
+            .any(|e| serde_json::to_string(e).unwrap().contains("other-tool.exe")));
         assert!(pre.iter().any(crate::hooks::entry_is_ours));
-        let ours: Vec<&Value> = pre.iter().filter(|e| crate::hooks::entry_is_ours(e)).collect();
+        let ours: Vec<&Value> = pre
+            .iter()
+            .filter(|e| crate::hooks::entry_is_ours(e))
+            .collect();
         assert_eq!(ours.len(), 1);
         assert!(serde_json::to_string(ours[0]).unwrap().contains("codex"));
         // Removing ours restores the original.
