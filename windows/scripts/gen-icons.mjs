@@ -281,7 +281,7 @@ const ico = encodeICO([16, 24, 32, 48, 64, 128, 256].map((size) => ({ size, png:
 writeFileSync(join(OUT, "icon.ico"), ico);
 console.log(`icon.ico — ${ico.length} bytes`);
 
-// macOS asset catalog + site icon, from the same renderer
+// macOS asset catalog, from the same renderer
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const appIcon = join(repoRoot, "Perch", "Assets.xcassets", "AppIcon.appiconset");
 for (const [name, size] of [
@@ -294,8 +294,7 @@ for (const [name, size] of [
   writeFileSync(join(appIcon, name), png(size));
   console.log(`AppIcon ${name}`);
 }
-writeFileSync(join(repoRoot, "docs", "media", "icon.png"), png(256));
-console.log("docs/media/icon.png");
+// (docs/media/ — and the site icon — are regenerated from a running build when the new artwork lands.)
 
 // Menubar template images (match the committed aspect: 24x18 base)
 const menuBar = join(repoRoot, "Perch", "Assets.xcassets", "MenuBarIcon.imageset");

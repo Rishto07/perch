@@ -1,18 +1,16 @@
 # Perch — name, character and artwork
 
 The Perch name, the Pip character, the app icons, the sounds and the
-screenshots in this repository belong to the Perch project. The source,
+screenshots produced for this project belong to the Perch project. The source,
 including the code-drawn character, icons and synthesized sounds, is licensed
 under the [Apache License 2.0](LICENSE) — see also [NOTICE](NOTICE).
 
-## Still reserved from the ancestor
+## Earlier artwork
 
-Perch is an independent fork. The following leftover media still shows an
-earlier character and artwork, which remain © their original author, all
-rights reserved — replace them with fresh Perch captures:
-
-- the demo and screenshots in `docs/media/` and `windows/screenshots/`;
-- the reference renders in `design/captures/`.
+This repository does not ship captures, screenshots or the demo video — they
+are regenerated from a running build for each release. An earlier fork's
+media (its character and artwork) is **not** part of this repository and
+remains © its original author, all rights reserved.
 
 ## What you can do
 
@@ -22,13 +20,12 @@ rights reserved — replace them with fresh Perch captures:
 
 ## What you can't do without written permission
 
-- Publish or distribute an app, a fork or a derivative work using the
-  ancestor's reserved media above as your own — on the App Store, on GitHub
-  releases, or anywhere else.
+- Publish or distribute an app, a fork or a derivative work using an earlier
+  fork's reserved media as your own — on the App Store, on GitHub releases,
+  or anywhere else.
 - Use the Perch name, the Pip character or the Perch artwork in a way that
   suggests your project is Perch or is made or endorsed by its authors.
 
 ## Questions or permission requests
 
 Open an issue on [GitHub](https://github.com/rishto07/perch/issues).
-For questions about the earlier reserved assets, see [LICENSE-ASSETS.md](LICENSE-ASSETS.md).

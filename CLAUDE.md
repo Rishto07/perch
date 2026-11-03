@@ -7,7 +7,7 @@ Perch is a native macOS app: Pip, a small animated character living in the MacBo
 - `windows/` — the Windows port (Tauri 2 + Rust + TypeScript).
 - `agents/` — multi-agent adapters: `agents/README.md` is the protocol doc; `codex/`, `opencode/`, `generic/` hold installers.
 - `docs/SPEC.md`, `docs/INTEGRATIONS.md` — behaviour, views, states, integrations (in French, inherited).
-- `design/prototype/perch-buddy.html` — original prototype, the visual source of truth. `design/captures/` — target screenshots.
+- `design/prototype/perch-buddy.html` — original prototype, the visual source of truth.
 - `docs/*.html` — the GitHub Pages site (privacy, terms, support, legal notice).
 
 ## Build
@@ -25,4 +25,4 @@ cd Perch && xcodegen && xcodebuild -scheme Perch -configuration Debug build
 - Never send an email or approve a permission without an explicit click.
 - Performance: 0 % CPU when the island is hidden.
 - Keep the bundle identifiers `com.perch.Perch` / `com.perch.PerchAppStore` (Keychain items, preferences and permissions depend on them). Hook commands matching `HookServer.isOwnHookCommand` are ours to upgrade/remove.
-- Visual changes must match the prototype and the screenshots in `design/captures/`.
+- Visual changes must match the prototype in `design/prototype/`. Screenshots and demo media are generated from a running build and are being redone.
