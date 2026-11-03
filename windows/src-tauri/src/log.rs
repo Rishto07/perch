@@ -18,12 +18,15 @@ pub fn line(message: impl AsRef<str>) {
         return;
     }
     let path = dir.join("perch.log");
-    // Keep it from growing forever: start fresh past ~1 MB.
+    // Keep it from growing forever: past ~1 MB, rotate to perch.log.old
+    // instead of deleting history outright.
     if std::fs::metadata(&path)
         .map(|m| m.len() > 1_000_000)
         .unwrap_or(false)
     {
-        let _ = std::fs::remove_file(&path);
+        let rotated = dir.join("perch.log.old");
+        let _ = std::fs::remove_file(&rotated);
+        let _ = std::fs::rename(&path, &rotated);
     }
     if let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)

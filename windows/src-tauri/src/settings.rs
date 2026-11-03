@@ -73,7 +73,13 @@ fn settings_path() -> PathBuf {
 
 pub fn load() -> Settings {
     match std::fs::read(settings_path()) {
-        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+        // A corrupt settings file must not silently factory-reset the app —
+        // but we can't invent the user's preferences either, so log it and
+        // fall back to defaults.
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|err| {
+            crate::log::line(format!("settings.json unreadable ({err}) — using defaults"));
+            Settings::default()
+        }),
         Err(_) => Settings::default(),
     }
 }
@@ -83,5 +89,15 @@ pub fn save(settings: &Settings) -> std::io::Result<()> {
     std::fs::create_dir_all(&dir)?;
     let json = serde_json::to_vec_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-    std::fs::write(settings_path(), json)
+    // Write beside the target and rename: a crash never leaves half a file.
+    let target = settings_path();
+    let temp = target.with_file_name(format!("settings.json.perch-{}", std::process::id()));
+    std::fs::write(&temp, json)?;
+    match std::fs::rename(&temp, &target) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            let _ = std::fs::remove_file(&temp);
+            Err(err)
+        }
+    }
 }
