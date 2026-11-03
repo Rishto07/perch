@@ -832,27 +832,6 @@ struct GhostBotView: View {
     }
 }
 
-// MARK: - Notification names
-
-extension Notification.Name {
-    static let triggerEmote     = Notification.Name("perch.triggerEmote")
-    static let triggerSlap      = Notification.Name("perch.triggerSlap")
-    static let botDizzy         = Notification.Name("perch.botDizzy")
-    static let botGreet         = Notification.Name("perch.botGreet")
-    static let botBlink         = Notification.Name("perch.botBlink")
-    static let botSetTgEs       = Notification.Name("perch.botSetTgEs")
-    static let botGulp          = Notification.Name("perch.botGulp")
-    static let botMorphTo       = Notification.Name("perch.botMorphTo")
-    static let islandAction     = Notification.Name("perch.islandAction")
-    static let islandCollapse   = Notification.Name("perch.islandCollapse")
-    static let openFullSettings = Notification.Name("perch.openFullSettings")
-    static let hookReveal       = Notification.Name("perch.hookReveal")
-    // Greeting ↔ IslandWindowController
-    static let greetComplete    = Notification.Name("perch.greetComplete")
-    static let greetingHover    = Notification.Name("perch.greetingHover")
-    static let greetingInterrupt = Notification.Name("perch.greetingInterrupt")
-}
-
 // MARK: - islandSize (takes real notch dimensions)
 
 func islandSize(mode: IslandMode, view: IslandView,
