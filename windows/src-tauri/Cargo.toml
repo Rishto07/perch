@@ -1,13 +1,13 @@
 [package]
-name = "coucou"
-description = "Coucou for Windows — Mochi lives at the top of your screen"
-authors = ["Louis Raille"]
+name = "perch"
+description = "Perch for Windows — Pip lives at the top of your screen"
+authors = ["Perch contributors"]
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "coucou_lib"
+name = "perch_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

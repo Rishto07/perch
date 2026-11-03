@@ -3,7 +3,7 @@
 // integrations land here too in a later stage.
 
 import "./settings.css";
-import { Bridge, onEvent, type HookStatus } from "../core/bridge";
+import { Bridge, onEvent, type AgentStatus, type HookStatus } from "../core/bridge";
 import { DEFAULT_SETTINGS, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 
@@ -67,7 +67,7 @@ function claudeSection(status: HookStatus): HTMLElement {
       h("div", {
         class: "hint",
         text: status.installed
-          ? "Coucou is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
+          ? "Perch is hooked into your coding-agent sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
           : "Install the hooks to see your Claude Code sessions in the island and approve permissions without leaving what you are doing.",
       }),
       h("div", { class: "row" },
@@ -84,7 +84,7 @@ function claudeSection(status: HookStatus): HTMLElement {
     if (!status.hookReady) {
       body.append(h("div", {
         class: "notice warn",
-        text: "coucou-hook.exe is not in place yet. Restart Coucou; if it still fails, build it with `cargo build -p coucou-hook`.",
+        text: "perch-hook.exe is not in place yet. Restart Perch; if it still fails, build it with `cargo build -p perch-hook`.",
       }));
     }
 
@@ -135,7 +135,7 @@ function claudeSection(status: HookStatus): HTMLElement {
         class: "hint",
         text: install
           ? "This is exactly what will change in your settings.json. Your own hooks are left untouched."
-          : "This removes Coucou's entries only. Your own hooks are left untouched.",
+          : "This removes Perch's entries only. Your own hooks are left untouched.",
       }),
       renderDiff(preview.diff),
       h("div", { class: "row" },
@@ -154,6 +154,142 @@ function claudeSection(status: HookStatus): HTMLElement {
         body.append(h("div", {
           class: "notice ok",
           text: `Done. Previous settings saved as ${backup}. Open a new Claude Code session to pick the hooks up.`,
+        }));
+        window.setTimeout(() => void rebuild(), 2600);
+      } catch (err) {
+        confirm.disabled = false;
+        body.append(h("div", { class: "notice err", text: `Could not write: ${String(err)}` }));
+      }
+    });
+    body.append(h("div", { class: "row" }, confirm, h("button", {
+      text: "Cancel",
+      onclick: () => { clear(body); draw(); },
+    })));
+  }
+
+  draw();
+  return section;
+}
+
+// ── Other coding agents ─────────────────────────────────────────────────────
+
+function agentsSection(initial: AgentStatus[]): HTMLElement {
+  let statuses = initial;
+  const body = h("div", { style: "display:flex;flex-direction:column;gap:12px" });
+  const section = h(
+    "section",
+    {},
+    h("h2", {}, h("span", { text: "Other coding agents" })),
+    body,
+  );
+
+  const rebuild = async () => {
+    const fresh = await Bridge.agentsStatus();
+    if (fresh) statuses = fresh;
+    clear(body);
+    draw();
+  };
+
+  function draw() {
+    body.append(h("div", {
+      class: "hint",
+      text: "Each agent gets its own pill in the island. Only Claude Code can ask for approvals from the notch — the rest are watched, never blocked.",
+    }));
+    for (const st of statuses) {
+      const row = h("div", { class: "row" },
+        statusDot(st.installed),
+        h("span", { text: st.name, style: "min-width:90px;font-weight:600" }),
+        h("span", { class: "hint", text: st.detail }),
+      );
+      body.append(row);
+      if (!st.canAuto) continue;
+      const actions = h("div", { class: "row" });
+      const install = h("button", {
+        class: "primary",
+        text: st.installed ? "Reinstall…" : "Install…",
+        onclick: () => showPreview(st, true),
+      });
+      if (!st.hookReady) {
+        install.disabled = true;
+        install.title = "The relay isn't installed yet.";
+      }
+      actions.append(install);
+      if (st.installed) {
+        actions.append(h("button", {
+          class: "danger",
+          text: "Uninstall…",
+          onclick: () => showPreview(st, false),
+        }));
+      }
+      body.append(actions);
+    }
+    const pending = statuses.filter((s) => s.canAuto && !s.installed && (s.cliDetected || s.id === "opencode"));
+    if (pending.length > 0) {
+      const all = h("button", {
+        class: "primary",
+        text: `Connect all (${pending.map((s) => s.name).join(", ")})…`,
+        onclick: async () => {
+          for (const st of pending) {
+            try {
+              const preview = await Bridge.agentsPreview(st.id, true);
+              await Bridge.agentsApply(st.id, true, preview.fingerprint);
+            } catch (err) {
+              body.append(h("div", {
+                class: "notice err",
+                text: `${st.name}: ${String(err).replace(/^Error:\s*/, "")}`,
+              }));
+            }
+          }
+          void rebuild();
+        },
+      });
+      // Connect-all skips the per-agent diff on purpose: it only ever *adds*
+      // Perch entries (dated backups first) and reports failures inline.
+      // Anything already installed is left untouched.
+      body.append(h("div", { class: "row" }, all));
+    }
+  }
+
+  async function showPreview(st: AgentStatus, install: boolean) {
+    let preview;
+    try {
+      preview = await Bridge.agentsPreview(st.id, install);
+    } catch (err) {
+      clear(body);
+      body.append(
+        h("div", { class: "notice err", text: String(err).replace(/^Error:\s*/, "") }),
+        h("div", { class: "row" }, h("button", {
+          text: "Back",
+          onclick: () => { clear(body); draw(); },
+        })),
+      );
+      return;
+    }
+    clear(body);
+    body.append(
+      h("div", {
+        class: "hint",
+        text: install
+          ? `${st.name}: exactly what will change. Your own entries are left untouched.`
+          : `${st.name}: this removes Perch's entries only.`,
+      }),
+      renderDiff(preview.diff),
+      h("div", { class: "row" },
+        h("span", { class: "path", text: `Backup → ${preview.backup}` }),
+      ),
+    );
+    const confirm = h("button", {
+      class: install ? "primary" : "danger",
+      text: install ? "Back up and write" : "Back up and remove",
+    });
+    confirm.addEventListener("click", async () => {
+      confirm.disabled = true;
+      try {
+        const backup = await Bridge.agentsApply(st.id, install, preview.fingerprint);
+        clear(body);
+        body.append(h("div", {
+          class: "notice ok",
+          text: `Done${backup ? `. Previous settings saved as ${backup}` : ""}. Open a new ${st.name} session to pick it up.`,
         }));
         window.setTimeout(() => void rebuild(), 2600);
       } catch (err) {
@@ -292,7 +428,7 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
 
   function updateNote() {
     const used = settings.activeIntegrations.length;
-    note.textContent = `Pick up to ${MAX_ACTIVE} pills to show next to Mochi — ${used}/${MAX_ACTIVE} in use. Keys are stored in the Windows Credential Manager, never on disk.`;
+    note.textContent = `Pick up to ${MAX_ACTIVE} pills to show next to Pip — ${used}/${MAX_ACTIVE} in use. Keys are stored in the Windows Credential Manager, never on disk.`;
   }
 
   for (const def of INTEGRATIONS) {
@@ -431,6 +567,8 @@ async function main() {
 
   const hasKey = (await Bridge.secretPresent("anthropic-api-key")) ?? false;
 
+  const agentStatuses = (await Bridge.agentsStatus()) ?? [];
+
   const keys = [
     "stripe-api-key", "github-token", "vercel-token",
     "n8n-url", "n8n-api-key", "resend-api-key", "notion-api-key", "calcom-api-key",
@@ -440,8 +578,9 @@ async function main() {
 
   clear(root);
   root.append(
-    h("h1", {}, h("span", { text: "Coucou" }), h("span", { class: "version", text: version })),
+    h("h1", {}, h("span", { text: "Perch" }), h("span", { class: "version", text: version })),
     claudeSection(status),
+    agentsSection(agentStatuses),
     apiSection(hasKey),
     integrationsSection(present),
     generalSection(),

@@ -1,19 +1,23 @@
-//! coucou-hook — the relay Claude Code runs on every hook event.
+//! perch-hook — the relay coding agents run on every hook event.
 //!
 //! Reads the hook JSON on stdin, adds a little terminal context, and hands it to
-//! Coucou over the named pipe `\\.\pipe\coucou-<sid>`.
+//! Perch over the named pipe `\\.\pipe\perch-<sid>`.
 //!
-//! Hard rule (docs/CLAUDE.md): **never block Claude Code.**
-//! * If the pipe does not exist — Coucou is closed — we exit 0 immediately with
+//! Hard rule (docs/CLAUDE.md): **never block the agent.**
+//! * If the pipe does not exist — Perch is closed — we exit 0 immediately with
 //!   nothing on stdout, and the session carries on untouched.
 //! * Every step runs under a deadline enforced by the main thread, so a pipe that
 //!   accepts the connection and then stops reading cannot wedge the session
 //!   either: we abandon the worker and exit.
-//! * Only `PermissionRequest` waits for an answer, because approving from the
-//!   island is the whole point. No answer means empty stdout, and Claude Code
-//!   asks in the terminal exactly as if Coucou were not installed.
+//! * Only Claude Code's `PermissionRequest` waits for an answer, because approving
+//!   from the island is the whole point. No answer means empty stdout, and the
+//!   agent asks in the terminal exactly as if Perch were not installed.
+//! * Events from other agents (Codex, OpenCode, Zcode, generic wrapper) always
+//!   travel fire-and-forget: they are observability only, never blocking.
 //!
-//! Usage: `coucou-hook <EventName>` (the name is also read from the JSON).
+//! Usage: `perch-hook <EventName> [agent]` (the name is also read from the JSON).
+//! The agent tag can also come from the `agent` JSON field or `PERCH_AGENT`.
+//! Missing/unknown defaults to `claude` for backwards compatibility.
 
 use std::io::{Read, Write};
 use std::sync::mpsc;
@@ -39,13 +43,13 @@ const MAX_FIELD_LEN: usize = 2_000;
 
 mod win;
 
-/// `\\.\pipe\coucou-<sid>`. The SID keeps two accounts on the same machine from
+/// `\\.\pipe\perch-<sid>`. The SID keeps two accounts on the same machine from
 /// ever meeting on the same pipe; the name falls back to the user name only if
 /// the SID cannot be read at all, which should not happen.
 fn pipe_path() -> String {
     let key = win::current_user_sid()
         .unwrap_or_else(|| std::env::var("USERNAME").unwrap_or_else(|_| "user".into()));
-    format!(r"\\.\pipe\coucou-{key}")
+    format!(r"\\.\pipe\perch-{key}")
 }
 
 /// Opens the pipe. Retries only while the server is busy: any other error means
@@ -72,9 +76,11 @@ fn connect() -> Option<std::fs::File> {
 }
 
 fn main() {
-    let Some((payload, event)) = read_event() else { std::process::exit(0) };
+    let Some((payload, event, agent)) = read_event() else { std::process::exit(0) };
 
-    let waits_for_answer = event == "PermissionRequest";
+    // Blocking approvals stay Claude-only: other agents have no stable blocking
+    // hook contract, so waiting would wedge their session for ~110 s.
+    let waits_for_answer = event == "PermissionRequest" && agent == "claude";
     let budget = if waits_for_answer { DECISION_BUDGET } else { FIRE_AND_FORGET_BUDGET };
 
     // The worker owns every blocking call. If it overruns the budget we simply
@@ -105,7 +111,7 @@ fn decision_json(decision: &str) -> Option<String> {
         // "always" still answers a plain allow; remembering it is the island's
         // business, not Claude Code's.
         "allow" | "always" => r#"{"behavior":"allow"}"#.to_string(),
-        "deny" => r#"{"behavior":"deny","message":"Denied from Coucou"}"#.to_string(),
+        "deny" => r#"{"behavior":"deny","message":"Denied from Perch"}"#.to_string(),
         _ => return None,
     };
     Some(format!(
@@ -113,8 +119,10 @@ fn decision_json(decision: &str) -> Option<String> {
     ))
 }
 
-/// Reads stdin and returns the payload to forward plus the event name.
-fn read_event() -> Option<(String, String)> {
+/// Reads stdin and returns the payload to forward plus the event name and agent.
+/// The agent tag comes from the `agent` JSON field, else argv[2], else the
+/// `PERCH_AGENT` env var, else `claude` (backwards compatible).
+fn read_event() -> Option<(String, String, String)> {
     let mut raw = Vec::new();
     if std::io::stdin().read_to_end(&mut raw).is_err() || raw.is_empty() {
         return None;
@@ -138,6 +146,22 @@ fn read_event() -> Option<(String, String)> {
         .unwrap_or(arg_event);
     map.insert("hook_event_name".into(), serde_json::Value::String(event.clone()));
 
+    // The agent tag: JSON wins, then argv[2], then PERCH_AGENT, then "claude".
+    // Normalised to the small set the island routes on (see agents/README.md).
+    let arg_agent = std::env::args().nth(2).unwrap_or_default();
+    let raw_agent = map
+        .get("agent")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(arg_agent);
+    let agent = normalise_agent(if raw_agent.is_empty() {
+        std::env::var("PERCH_AGENT").unwrap_or_default()
+    } else {
+        raw_agent
+    });
+    map.insert("agent".into(), serde_json::Value::String(agent.clone()));
+
     for field in DROPPED_FIELDS {
         map.remove(*field);
     }
@@ -156,7 +180,7 @@ fn read_event() -> Option<(String, String)> {
         }
     }
 
-    // Which terminal the session runs in. Unlike macOS, Coucou on Windows accepts
+    // Which terminal the session runs in. Unlike macOS, Perch on Windows accepts
     // events from every terminal, so this is context only — never a filter.
     for (key, var) in [
         ("term_program", "TERM_PROGRAM"),
@@ -175,7 +199,28 @@ fn read_event() -> Option<(String, String)> {
 
     let mut line = payload.to_string();
     line.push('\n');
-    Some((line, event))
+    Some((line, event, agent))
+}
+
+/// Maps free-form agent names to the small set the island routes on.
+/// Unknown/empty defaults to `claude` so old payloads keep working.
+fn normalise_agent(raw: String) -> String {
+    match raw.trim().to_lowercase().as_str() {
+        "codex" => "codex".into(),
+        "opencode" | "open-code" | "opencode-ai" => "opencode".into(),
+        "zcode" | "z-code" => "zcode".into(),
+        "generic" | "other" | "unknown" | "" => {
+            if raw.trim().is_empty() {
+                "claude".into()
+            } else {
+                "generic".into()
+            }
+        }
+        "claude" | "claude-code" | "claudecode" => "claude".into(),
+        // Anything else is somebody's agent: show it under the generic pill
+        // rather than dropping it on the floor.
+        _ => "generic".into(),
+    }
 }
 
 /// Caps every string in the payload. A single Write can carry a whole file.
@@ -241,7 +286,7 @@ mod tests {
         );
         assert_eq!(
             decision_json("deny").unwrap(),
-            r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from Coucou"}}}"#
+            r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from Perch"}}}"#
         );
         // "always" is an island concept; Claude Code just gets an allow.
         assert!(decision_json("always").unwrap().contains(r#""behavior":"allow""#));
@@ -253,6 +298,17 @@ mod tests {
         assert!(decision_json("maybe").is_none());
         // The shape the app used to send must not be mistaken for a decision.
         assert!(decision_json(r#"{"permissionDecision":"allow"}"#).is_none());
+    }
+
+    #[test]
+    fn agent_names_normalise_to_the_routed_set() {
+        assert_eq!(normalise_agent("".into()), "claude");
+        assert_eq!(normalise_agent("claude-code".into()), "claude");
+        assert_eq!(normalise_agent("Codex".into()), "codex");
+        assert_eq!(normalise_agent("opencode".into()), "opencode");
+        assert_eq!(normalise_agent("z-code".into()), "zcode");
+        assert_eq!(normalise_agent("freebuff".into()), "generic");
+        assert_eq!(normalise_agent("unknown".into()), "generic");
     }
 
     #[test]

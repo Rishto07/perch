@@ -1,15 +1,15 @@
-# Contributing to Coucou
+# Contributing to Perch
 
-Thanks for wanting to help Mochi grow up! 🫶
+Thanks for wanting to help Pip grow up! 🫶
 
 ## Getting started
 
 ```bash
 brew install xcodegen
-cd NotchBuddy && xcodegen && open NotchBuddy.xcodeproj
+cd Perch && xcodegen && open Perch.xcodeproj
 ```
 
-Never edit `NotchBuddy.xcodeproj` by hand: change `project.yml` and run `xcodegen`.
+Never edit `Perch.xcodeproj` by hand: change `project.yml` and run `xcodegen`.
 
 Check resting island dimensions on screens with and without a notch:
 
@@ -20,7 +20,7 @@ bash scripts/test-screen-geometry.sh
 ## Good first contributions
 
 - A new integration (a poller + a pill + a detail card). Look at `StripePoller.swift` for a compact example.
-- A new emote or sound for Mochi.
+- A new emote or sound for Pip.
 - Bug fixes — please describe how to reproduce.
 
 ## Rules of the house
@@ -28,7 +28,7 @@ bash scripts/test-screen-geometry.sh
 - Swift 6, SwiftUI + AppKit, **no third-party dependencies** unless there's really no other way.
 - Secrets go in the Keychain, never on disk or in git.
 - No telemetry, no network calls except to services the user configured.
-- Never block Claude Code: if the app doesn't answer, the hook must exit right away.
+- Never block the agent: if the app doesn't answer, the hook must exit right away.
 - Never write `~/.claude/settings.json` without a backup and the user's confirmation.
 - Keep it light: 0 % CPU when the island is hidden.
 

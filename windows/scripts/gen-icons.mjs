@@ -1,6 +1,9 @@
-// Draws Mochi into the PNG/ICO set Tauri needs. No dependencies: the icons are
+// Draws Pip into the PNG/ICO set Tauri needs. No dependencies: the icons are
 // rasterised here and encoded with node:zlib, so the app icon stays "drawn in
 // code" like the character itself.
+//
+// NOTE: this still renders the ancestor's blob silhouette — replace the body
+// and eyes with your own Pip design (see LICENSE-ASSETS.md).
 //
 //   node scripts/gen-icons.mjs
 
@@ -11,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri", "icons");
 
-// ── Mochi ─────────────────────────────────────────────────────────────────────
+// ── Pip ───────────────────────────────────────────────────────────────────────
 
 const BASE_TOP = [255, 250, 245]; // #FFFAF5
 const BASE_BOTTOM = [221, 204, 191]; // #DDCCBF
@@ -35,25 +38,51 @@ function insidePill(x, y, w, h) {
   return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
 }
 
-function renderMochi(size) {
+function renderPip(size) {
   const px = new Uint8Array(size * size * 4);
-  const R = size * 0.34;
+  const R = size * 0.3;
   const rx = R * 1.14;
   const ry = R * 0.88;
   const cx = size / 2;
   const cy = size / 2 + R * 0.06;
   const rim = R * 0.055; // dark outline so the tray icon reads on light themes
 
-  // Eyes — same geometry as BotEngine (yaw ±0.37, pitch −0.12)
-  const eyeYaw = 0.37;
+  // Head tuft — two small feathers splayed outward (same geometry as the engines)
+  const feathers = [-1, 1].map((sd) => ({
+    cx: cx + sd * rx * 0.16,
+    cy: cy - ry - R * 0.16,
+    w: R * 0.26,
+    h: R * 0.55,
+    ang: sd * -0.38,
+  }));
+  const insideFeather = (px0, py0, f, grow) => {
+    const dx = px0 - f.cx;
+    const dy = py0 - f.cy;
+    const c = Math.cos(-f.ang);
+    const s = Math.sin(-f.ang);
+    const qx = dx * c - dy * s;
+    const qy = dx * s + dy * c;
+    const a = f.w / 2 + grow;
+    const b = f.h / 2 + grow;
+    return (qx / a) ** 2 + (qy / b) ** 2 <= 1;
+  };
+  const inTuft = (px0, py0, grow) => feathers.some((f) => insideFeather(px0, py0, f, grow));
+
+  // Belly patch — soft light oval low on the body
+  const belly = { cx, cy: cy + ry * 0.425, rx: rx * 0.55, ry: ry * 0.375 };
+  const inBelly = (px0, py0) =>
+    ((px0 - belly.cx) / belly.rx) ** 2 + ((py0 - belly.cy) / belly.ry) ** 2 <= 1;
+
+  // Eyes — same geometry as the engines (tall ovals, close set)
+  const eyeYaw = 0.335;
   const eyePitch = -0.12;
   const cp = Math.cos(eyePitch);
   const ex = Math.sin(eyeYaw) * cp * rx;
   const ey = -Math.sin(eyePitch) * ry;
   const fx = Math.max(0.18, Math.cos(eyeYaw));
   const fy = Math.max(0.18, cp);
-  const ew = R * 0.25 * fx;
-  const eh = R * 0.27 * fy;
+  const ew = R * 0.22 * fx;
+  const eh = R * 0.33 * fy;
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -64,9 +93,9 @@ function renderMochi(size) {
         for (let sx = 0; sx < SS; sx++) {
           const px0 = x + (sx + 0.5) / SS - cx;
           const py0 = y + (sy + 0.5) / SS - cy;
-          if (!insideBody(px0, py0, rx + rim, ry + rim)) continue;
+          if (!insideBody(px0, py0, rx + rim, ry + rim) && !inTuft(px0, py0, rim)) continue;
           rimHits++;
-          if (!insideBody(px0, py0, rx, ry)) continue;
+          if (!insideBody(px0, py0, rx, ry) && !inTuft(px0, py0, 0)) continue;
           bodyHits++;
           if (
             insidePill(px0 + ex, py0 - ey, ew, eh) ||
@@ -85,7 +114,12 @@ function renderMochi(size) {
 
       // Body gradient: top-right → bottom-left, like the Canvas gradient.
       const t = Math.min(1, Math.max(0, ((x - cx) * -0.6 + (y - cy) * 0.8) / (2 * ry) + 0.5));
-      const body = [0, 1, 2].map((i) => BASE_TOP[i] + (BASE_BOTTOM[i] - BASE_TOP[i]) * t);
+      let body = [0, 1, 2].map((i) => BASE_TOP[i] + (BASE_BOTTOM[i] - BASE_TOP[i]) * t);
+
+      // Belly patch lightens the lower body (pixel-centre test, scaled by coverage)
+      const bellyOn =
+        inBelly(x + 0.5 - cx, y + 0.5 - cy) && insideBody(x + 0.5 - cx, y + 0.5 - cy, rx, ry);
+      if (bellyOn) body = body.map((c) => c + (255 - c) * 0.3 * (bodyA / rimA));
 
       // rim under body, body over rim, eyes over body
       let col = RIM.slice();
@@ -178,11 +212,59 @@ function encodeICO(entries) {
   return Buffer.concat([header, dir, ...entries.map((e) => e.png)]);
 }
 
+// ── Menubar silhouette (template image: solid shape, eyes knocked out) ───────
+
+function renderSilhouette(w, h) {
+  const px = new Uint8Array(w * h * 4);
+  const R = Math.min(w, h) * 0.3;
+  const rx = R * 1.14;
+  const ry = R * 0.88;
+  const cx = w / 2;
+  const cy = h / 2 + R * 0.06;
+  const feathers = [-1, 1].map((sd) => ({
+    cx: cx + sd * rx * 0.16,
+    cy: cy - ry - R * 0.16,
+    w: R * 0.26,
+    h: R * 0.55,
+    ang: sd * -0.38,
+  }));
+  const inFeather = (px0, py0, f) => {
+    const dx = px0 - f.cx;
+    const dy = py0 - f.cy;
+    const c = Math.cos(-f.ang);
+    const s = Math.sin(-f.ang);
+    const qx = dx * c - dy * s;
+    const qy = dx * s + dy * c;
+    return (qx / (f.w / 2)) ** 2 + (qy / (f.h / 2)) ** 2 <= 1;
+  };
+  const eyeYaw = 0.335;
+  const ex = Math.sin(eyeYaw) * rx;
+  const ey = R * 0.12;
+  const ew = R * 0.22;
+  const eh = R * 0.33;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const px0 = x + 0.5 - cx;
+      const py0 = y + 0.5 - cy;
+      const inShape =
+        insideBody(px0, py0, rx, ry) || feathers.some((f) => inFeather(px0, py0, f));
+      if (!inShape) continue;
+      const inEye =
+        insidePill(px0 + ex, py0 - ey, ew, eh) || insidePill(px0 - ex, py0 - ey, ew, eh);
+      if (inEye) continue;
+      const o = (y * w + x) * 4;
+      px[o] = px[o + 1] = px[o + 2] = 0;
+      px[o + 3] = 255;
+    }
+  }
+  return px;
+}
+
 // ── Go ────────────────────────────────────────────────────────────────────────
 
 mkdirSync(OUT, { recursive: true });
 
-const png = (size) => encodePNG(size, renderMochi(size));
+const png = (size) => encodePNG(size, renderPip(size));
 
 const files = {
   "32x32.png": png(32),
@@ -198,3 +280,46 @@ for (const [name, data] of Object.entries(files)) {
 const ico = encodeICO([16, 24, 32, 48, 64, 128, 256].map((size) => ({ size, png: png(size) })));
 writeFileSync(join(OUT, "icon.ico"), ico);
 console.log(`icon.ico — ${ico.length} bytes`);
+
+// macOS asset catalog + site icon, from the same renderer
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const appIcon = join(repoRoot, "Perch", "Assets.xcassets", "AppIcon.appiconset");
+for (const [name, size] of [
+  ["icon_16x16.png", 16], ["icon_16x16@2x.png", 32],
+  ["icon_32x32.png", 32], ["icon_32x32@2x.png", 64],
+  ["icon_128x128.png", 128], ["icon_128x128@2x.png", 256],
+  ["icon_256x256.png", 256], ["icon_256x256@2x.png", 512],
+  ["icon_512x512.png", 512], ["icon_512x512@2x.png", 1024],
+]) {
+  writeFileSync(join(appIcon, name), png(size));
+  console.log(`AppIcon ${name}`);
+}
+writeFileSync(join(repoRoot, "docs", "media", "icon.png"), png(256));
+console.log("docs/media/icon.png");
+
+// Menubar template images (match the committed aspect: 24x18 base)
+const menuBar = join(repoRoot, "Perch", "Assets.xcassets", "MenuBarIcon.imageset");
+const sil = (w, h) => {
+  // encodePNG is square-only; build the small rect directly
+  const rgba = renderSilhouette(w, h);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const raw = Buffer.alloc(h * (w * 4 + 1));
+  for (let y = 0; y < h; y++) {
+    raw[y * (w * 4 + 1)] = 0;
+    Buffer.from(rgba.buffer, y * w * 4, w * 4).copy(raw, y * (w * 4 + 1) + 1);
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+};
+writeFileSync(join(menuBar, "menubar.png"), sil(24, 18));
+writeFileSync(join(menuBar, "menubar@2x.png"), sil(48, 36));
+writeFileSync(join(menuBar, "menubar@3x.png"), sil(72, 54));
+console.log("menubar silhouettes");

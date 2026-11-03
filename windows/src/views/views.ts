@@ -7,7 +7,7 @@ import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
 import { State, type AgentTask } from "../core/state";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
-import { createMiniBot, pruneMiniBots } from "../mochi/minibots";
+import { createMiniBot, pruneMiniBots } from "../pip/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
@@ -172,10 +172,15 @@ function buildOverview(actions: ViewActions): ViewHost {
         mode = null;
       }
 
-      // VS Code with a live Claude Code session keeps the ticker; every other
+      // Any agent pill with a live session keeps the ticker; every other
       // pill shows its own card, exactly like IntegrationCardView.
       const sessionActive =
-        task?.id === "integration_claude" && (task.state !== "idle" || task.steps.length > 0);
+        (task?.id === "integration_claude" ||
+          task?.id === "integration_codex" ||
+          task?.id === "integration_opencode" ||
+          task?.id === "integration_zcode" ||
+          task?.id === "integration_generic") &&
+        (task.state !== "idle" || task.steps.length > 0);
 
       if (task && sessionActive) {
         if (mode !== "ticker") {
@@ -188,7 +193,7 @@ function buildOverview(actions: ViewActions): ViewHost {
         who.append(
           dot(task.color, 7),
           h("span", { class: "name", text: task.name }),
-          h("span", { class: "tool", text: task.source === "claudeCode" ? "Claude Code" : "n8n" }),
+          h("span", { class: "tool", text: agentToolLabel(task.source) }),
         );
         if (task.steps.length > 1) {
           who.append(h("span", {
@@ -226,8 +231,28 @@ function buildOverview(actions: ViewActions): ViewHost {
   };
 }
 
+/** Human label for the agent behind a pill (mirrors macOS agentLabel). */
+function agentToolLabel(source: string): string {
+  switch (source) {
+    case "codex": return "Codex";
+    case "opencode": return "OpenCode";
+    case "zcode": return "Zcode";
+    case "generic": return "Agent";
+    case "claudeCode": return "Claude Code";
+    default: return "n8n";
+  }
+}
+
 function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
-  const label = task.id === "integration_claude" ? "VS Code" : task.name;
+  // Agent pills keep their agent label (same as the VS Code pill); the project
+  // name lives in the session card.
+  const label =
+    task.id === "integration_claude" ? "VS Code"
+    : task.id === "integration_codex" ? "Codex"
+    : task.id === "integration_opencode" ? "OpenCode"
+    : task.id === "integration_zcode" ? "Zcode"
+    : task.id === "integration_generic" ? "Agent"
+    : task.name;
   const canvas = createMiniBot(task, 24);
   const pill = h(
     "div",
@@ -328,11 +353,11 @@ function buildQuestion(): ViewHost {
     el,
     sync() {
       clear(who);
-      who.append(agentWho(State.focusTask, "Claude Code is asking a question"));
+      who.append(agentWho(State.focusTask, `${agentToolLabel(State.focusTask?.source ?? "")} is asking a question`));
       const task = State.focusTask;
-      title.textContent = task?.steps.at(-1) ?? "Claude needs an answer.";
+      title.textContent = task?.steps.at(-1) ?? "An agent needs an answer.";
       clear(row);
-      row.append(h("div", { class: "sub", text: "Answer in your terminal — Coucou can't reply for you yet." }));
+      row.append(h("div", { class: "sub", text: "Answer in your terminal — Perch can't reply for you yet." }));
     },
   };
 }
@@ -353,7 +378,7 @@ function buildError(actions: ViewActions): ViewHost {
     sync() {
       const task = State.focusTask;
       clear(who);
-      who.append(agentWho(task, task?.source === "n8n" ? "n8n" : "Claude Code"));
+      who.append(agentWho(task, agentToolLabel(task?.source ?? "")));
       title.textContent = task?.source === "n8n" ? "Workflow stopped." : "Session stopped on an error.";
       detail.textContent = task?.steps.at(-1) ?? "No detail available.";
     },
@@ -374,7 +399,7 @@ function buildFinished(actions: ViewActions): ViewHost {
     el,
     sync() {
       clear(who);
-      who.append(agentWho(State.focusTask, "Claude Code finished"));
+      who.append(agentWho(State.focusTask, `${agentToolLabel(State.focusTask?.source ?? "")} finished`));
       title.textContent = State.focusTask?.steps.at(-1) ?? "Session finished";
     },
   };

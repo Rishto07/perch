@@ -1,28 +1,34 @@
-# Coucou — name, character and artwork
+# Perch — name, character and artwork
 
-Copyright (c) 2026 Louis Raillé. All rights reserved, except as stated below.
+The Perch name, the Pip character, the app icons, the sounds and the
+screenshots in this repository belong to the Perch project. The source,
+including the code-drawn character, icons and synthesized sounds, is licensed
+under the [Apache License 2.0](LICENSE) — see also [NOTICE](NOTICE).
 
-The [MIT License](LICENSE) covers the **source code** of Coucou. It does **not** cover the brand and the artwork listed here, which remain the property of Louis Raillé:
+## Still reserved from the ancestor
 
-- the names **“Coucou”** and **“Mochi”**;
-- the **Mochi character** — its design, look, expressions and animations as a character;
-- the **app icon** and **menu bar icon** (`NotchBuddy/Assets.xcassets/`);
-- the **sounds** (`NotchBuddy/Resources/sounds/`);
-- the **images, GIFs and videos** in `docs/media/` and `design/`.
+Perch is an independent fork. The following leftover media still shows an
+earlier character and artwork, which remain © their original author, all
+rights reserved — replace them with fresh Perch captures:
+
+- the demo and screenshots in `docs/media/` and `windows/screenshots/`;
+- the reference renders in `design/captures/`.
 
 ## What you can do
 
-- Build and run Coucou from this repository, for yourself, as it is.
-- Fork it and contribute back with pull requests.
-- Show, review, write or talk about Coucou (articles, videos, posts), including screenshots and the demo media.
+- Build and run Perch from this repository, for yourself, as it is.
+- Fork it and contribute back with pull requests, under the Apache License 2.0.
+- Show, review, write or talk about Perch (articles, videos, posts).
 
 ## What you can't do without written permission
 
-- Publish or distribute an app, a fork or a derivative work under the name “Coucou” or “Mochi”, or with the Coucou icon, the Mochi character or the Coucou sounds — on the App Store, on GitHub releases, or anywhere else.
-- Use any of these assets commercially, or in a way that suggests your project is Coucou or is made or endorsed by its author.
-
-If you fork Coucou to ship your own app, that's welcome under the MIT License: just give it **your own name, icon, character and sounds**.
+- Publish or distribute an app, a fork or a derivative work using the
+  ancestor's reserved media above as your own — on the App Store, on GitHub
+  releases, or anywhere else.
+- Use the Perch name, the Pip character or the Perch artwork in a way that
+  suggests your project is Perch or is made or endorsed by its authors.
 
 ## Questions or permission requests
 
-Open an issue on [GitHub](https://github.com/Louis-CFM/coucou/issues) or write to raillelouis@gmail.com.
+Open an issue on [GitHub](https://github.com/rishto07/perch/issues).
+For questions about the earlier reserved assets, see [LICENSE-ASSETS.md](LICENSE-ASSETS.md).

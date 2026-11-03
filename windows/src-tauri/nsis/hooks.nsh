@@ -1,9 +1,10 @@
 ; Uninstall hooks for the NSIS installer.
 ;
-; The app stages coucou-hook.exe into %LOCALAPPDATA%\Coucou\bin at launch, so the
+; The app stages perch-hook.exe into %LOCALAPPDATA%\Perch\bin at launch, so the
 ; installer never recorded it and the default uninstaller leaves it behind. The
 ; inbox and the log live in the same place and are ours too.
 ;
+
 ; Claude Code's own settings.json is deliberately NOT touched here: it belongs to
 ; the user, it may contain hooks from other tools, and rewriting somebody's
 ; config from an uninstaller with no diff and no consent is exactly what the rest
@@ -11,7 +12,7 @@
 ; printing anything, so a leftover entry costs nothing beyond a dead path.
 
 !macro NSIS_HOOK_PREUNINSTALL
-  RMDir /r "$LOCALAPPDATA\Coucou\bin"
-  RMDir /r "$LOCALAPPDATA\Coucou\inbox"
-  Delete "$LOCALAPPDATA\Coucou\coucou.log"
+  RMDir /r "$LOCALAPPDATA\Perch\bin"
+  RMDir /r "$LOCALAPPDATA\Perch\inbox"
+  Delete "$LOCALAPPDATA\Perch\perch.log"
 !macroend

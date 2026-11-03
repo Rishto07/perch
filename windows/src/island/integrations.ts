@@ -37,6 +37,12 @@ export async function refreshConfigured() {
     data: {}, error: null, loaded: false, configured: false,
   };
   State.integrations.integration_claude = { ...claude, configured: hooks };
+  // Agent pills need no key and no hook check: sessions appear on their own
+  // once an adapter forwards events. Always "ready".
+  for (const id of ["integration_codex", "integration_opencode", "integration_zcode", "integration_generic"]) {
+    const cur = State.integrations[id] ?? { data: {}, error: null, loaded: false, configured: false };
+    State.integrations[id] = { ...cur, configured: true };
+  }
   State.notify();
 }
 

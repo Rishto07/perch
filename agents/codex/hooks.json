@@ -1,0 +1,77 @@
+{
+  "_comment": "Example Codex hooks for Perch. Prefer agents/codex/install.sh, which merges these into ~/.codex/hooks.json with a backup. Replace /Users/YOU with your home.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PERCH_AGENT=codex \"/Users/YOU/Library/Application Support/Perch/perch-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

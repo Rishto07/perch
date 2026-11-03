@@ -4,9 +4,9 @@ set -euo pipefail
 
 VERSION="${1:?Usage: $0 <version>}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BUILD_DIR="/tmp/coucou-release-$VERSION"
-APP="$BUILD_DIR/Coucou.app"
-ZIP="$BUILD_DIR/Coucou.zip"
+BUILD_DIR="/tmp/perch-release-$VERSION"
+APP="$BUILD_DIR/Perch.app"
+ZIP="$BUILD_DIR/Perch.zip"
 
 # ── 1. Find Developer ID identity ─────────────────────────────────────────────
 IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(Developer ID Application[^"]*\)".*/\1/')
@@ -17,13 +17,13 @@ fi
 echo "Signing with: $IDENTITY"
 
 # ── 2. xcodegen + Release build ───────────────────────────────────────────────
-cd "$REPO_ROOT/NotchBuddy"
+cd "$REPO_ROOT/Perch"
 xcodegen generate
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
 
 xcodebuild \
-  -project NotchBuddy.xcodeproj \
-  -scheme NotchBuddy \
+  -project Perch.xcodeproj \
+  -scheme Perch \
   -configuration Release \
   build \
   CODE_SIGN_IDENTITY="$IDENTITY" \
@@ -33,7 +33,7 @@ xcodebuild \
 
 # ── 3. Zip + notarize ─────────────────────────────────────────────────────────
 ditto -c -k --keepParent "$APP" "$ZIP"
-xcrun notarytool submit "$ZIP" --keychain-profile coucou-notary --wait
+xcrun notarytool submit "$ZIP" --keychain-profile perch-notary --wait
 
 # ── 4. Staple + verify ────────────────────────────────────────────────────────
 xcrun stapler staple "$APP"
@@ -50,21 +50,21 @@ git tag "v$VERSION"
 git push origin "v$VERSION"
 
 gh release create "v$VERSION" "$ZIP" \
-  --repo Louis-CFM/coucou \
-  --title "Coucou $VERSION" \
+  --repo rishto07/perch \
+  --title "Perch $VERSION" \
   --notes "$(cat <<EOF
 ## Install
 
-Download **Coucou.zip**, unzip and move **Coucou.app** to \`/Applications\`. Launch — no extra steps needed.
+Download **Perch.zip**, unzip and move **Perch.app** to \`/Applications\`. Launch — no extra steps needed.
 
 ## Build from source
 
 \`\`\`bash
 brew install xcodegen
-git clone https://github.com/Louis-CFM/coucou.git
-cd coucou/NotchBuddy && xcodegen && open NotchBuddy.xcodeproj
+git clone https://github.com/rishto07/perch.git
+cd perch/Perch && xcodegen && open Perch.xcodeproj
 \`\`\`
 EOF
 )"
 
-echo "✓ v$VERSION released: https://github.com/Louis-CFM/coucou/releases/tag/v$VERSION"
+echo "✓ v$VERSION released: https://github.com/rishto07/perch/releases/tag/v$VERSION"

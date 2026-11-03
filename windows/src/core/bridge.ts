@@ -15,7 +15,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T |
   try {
     return await invoke<T>(cmd, args);
   } catch (err) {
-    console.error(`[coucou] ${cmd} failed`, err);
+    console.error(`[perch] ${cmd} failed`, err);
     return null;
   }
 }
@@ -57,7 +57,7 @@ export const Bridge = {
 
   openSettingsWindow: () => call<void>("open_settings_window"),
 
-  /** Writes to %LOCALAPPDATA%\Coucou\coucou.log, next to the Rust lines. */
+  /** Writes to %LOCALAPPDATA%\Perch\perch.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
 
   // ── Claude Code hooks ─────────────────────────────────────────────────────
@@ -77,6 +77,15 @@ export const Bridge = {
   approvalAck: (requestId: string) => call<void>("approval_ack", { requestId }),
   /** "Nobody can act on this" — Claude Code asks in the terminal right away. */
   approvalDecline: (requestId: string) => call<void>("approval_decline", { requestId }),
+
+  // ── Other coding agents (Codex, OpenCode, …) ─────────────────────────────
+  agentsStatus: () => call<AgentStatus[]>("agents_status"),
+  /** Diff to show before anything is written. `install: false` previews removal. */
+  agentsPreview: (agent: string, install: boolean) =>
+    callOrThrow<HookPreview>("agents_preview", { agent, install }),
+  /** Writes the agent's hooks — only ever after an explicit click + fingerprint. */
+  agentsApply: (agent: string, install: boolean, fingerprint: string) =>
+    callOrThrow<string>("agents_apply", { agent, install, fingerprint }),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
@@ -131,9 +140,20 @@ export interface HookPreview {
   fingerprint: string;
 }
 
+export interface AgentStatus {
+  id: string;
+  name: string;
+  cliDetected: boolean;
+  installed: boolean;
+  settingsPath: string;
+  hookReady: boolean;
+  detail: string;
+  canAuto: boolean;
+}
+
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */
 async function callOrThrow<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!IS_TAURI) throw new Error("not running inside Coucou");
+  if (!IS_TAURI) throw new Error("not running inside Perch");
   return invoke<T>(cmd, args);
 }
 

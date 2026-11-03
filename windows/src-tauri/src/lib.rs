@@ -1,6 +1,7 @@
-// Coucou for Windows — app wiring and the commands the island calls.
+// Perch for Windows — app wiring and the commands the island calls.
 
 mod claude;
+mod agents;
 mod files;
 mod hooks;
 mod integrations;
@@ -23,8 +24,7 @@ use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
 
 use claude::{Chat, ChatContext, ChatReply};
 use files::DroppedFile;
-use hooks::{HookPreview, HookStatus};
-use island::{PollGate, ScreenInfo};
+use hooks::{HookPreview, HookStatus};use island::{PollGate, ScreenInfo};
 use pipe::Pending;
 use settings::Settings;
 
@@ -69,13 +69,13 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         (screen_changed, autostart_changed)
     };
     if let Err(err) = settings::save(&settings) {
-        eprintln!("[coucou] could not save settings: {err}");
+        eprintln!("[perch] could not save settings: {err}");
     }
     if autostart_changed {
         let manager = app.autolaunch();
         let result = if settings.autostart { manager.enable() } else { manager.disable() };
         if let Err(err) = result {
-            eprintln!("[coucou] autostart: {err}");
+            eprintln!("[perch] autostart: {err}");
         }
     }
     if screen_changed {
@@ -158,7 +158,7 @@ fn open_in_vscode(path: Option<String>) -> bool {
 /// Our own `where`: walks %PATH% against %PATHEXT%, no shell involved.
 /// Rust quotes arguments correctly for `.cmd`/`.bat` targets since 1.77, so
 /// spawning `code.cmd` directly is safe.
-fn find_on_path(stem: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn find_on_path(stem: &str) -> Option<std::path::PathBuf> {
     let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
     let dirs = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&dirs) {
@@ -216,6 +216,25 @@ fn hooks_apply(
     };
     let _ = app.emit("settings-changed", updated);
     Ok(backup)
+}
+
+// ── Other coding agents (Codex, OpenCode, …) ────────────────────────────────
+
+#[tauri::command]
+fn agents_status() -> Vec<agents::AgentStatus> {
+    agents::status()
+}
+
+/// Diff for a Codex/OpenCode install or removal — same preview rule as Claude.
+#[tauri::command]
+fn agents_preview(agent: String, install: bool) -> Result<HookPreview, String> {
+    agents::preview(&agent, install)
+}
+
+/// Only ever called from an explicit click in the settings window.
+#[tauri::command]
+fn agents_apply(agent: String, install: bool, fingerprint: String) -> Result<String, String> {
+    agents::write(&agent, install, &fingerprint)
 }
 
 #[tauri::command]
@@ -328,7 +347,7 @@ fn create_settings_window(app: &AppHandle) {
     let url = settings_page_url(app);
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
-        .title("Settings — Coucou")
+        .title("Settings — Perch")
         .inner_size(560.0, 680.0)
         .min_inner_size(460.0, 480.0)
         .resizable(true)
@@ -393,6 +412,9 @@ pub fn run() {
             hooks_status,
             hooks_preview,
             hooks_apply,
+            agents_status,
+            agents_preview,
+            agents_apply,
             approval_decision,
             approval_ack,
             approval_decline,
@@ -423,12 +445,12 @@ pub fn run() {
             gate.set_active(true);
             island::spawn_cursor_poll(handle.clone(), gate.clone());
 
-            log::line(format!("--- Coucou {} started ---", env!("CARGO_PKG_VERSION")));
+            log::line(format!("--- Perch {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Coucou");
+        .expect("error while running Perch");
 }
