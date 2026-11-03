@@ -1,6 +1,6 @@
 import Foundation
 import CoreGraphics
-import Combine
+import SwiftUI
 
 // MARK: - Pip engine
 // Character simulation: state machine, tweens, particles. Drawing lives in
