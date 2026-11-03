@@ -6,6 +6,7 @@ import SwiftUI
 // Character simulation: state machine, tweens, particles. Drawing lives in
 // BotRenderer.swift; shared constants in PipConst.swift / PipAnimation.swift.
 
+@MainActor
 final class BotEngine: ObservableObject {
     var isMini: Bool = false
     var bodyColor: CGColor? = nil    // override for mini bots
