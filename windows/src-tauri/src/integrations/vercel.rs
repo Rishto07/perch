@@ -1,4 +1,6 @@
-use super::{client, emit, is_new, status_error, IntegrationEvent, IntegrationUpdate};
+use super::{
+    client, emit, emit_transport_error, is_new, status_error, IntegrationEvent, IntegrationUpdate,
+};
 use crate::secrets;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -15,7 +17,13 @@ pub(super) async fn poll_vercel(app: AppHandle) {
         .header("Accept", "application/json")
         .send()
         .await;
-    let Ok(response) = response else { return };
+    let response = match response {
+        Ok(r) => r,
+        Err(err) => {
+            emit_transport_error(&app, "integration_vercel", err);
+            return;
+        }
+    };
     if !response.status().is_success() {
         emit(
             &app,

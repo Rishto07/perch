@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::island::WINDOW_LABEL;
@@ -48,6 +48,20 @@ pub(super) fn client() -> reqwest::Client {
         .timeout(TIMEOUT)
         .build()
         .unwrap_or_default()
+}
+
+/// Report a transport failure the same way everywhere: an error on the card,
+/// never silence.
+pub(super) fn emit_transport_error(app: &AppHandle, id: &'static str, err: impl std::fmt::Display) {
+    emit(
+        app,
+        IntegrationUpdate {
+            id,
+            data: json!({}),
+            error: Some(format!("No connection: {err}")),
+            event: None,
+        },
+    );
 }
 
 /// Set from the tray's Pause item. While it is on, nothing reaches the network:

@@ -1,4 +1,4 @@
-use super::{client, emit, is_new, IntegrationEvent, IntegrationUpdate};
+use super::{client, emit, emit_transport_error, is_new, IntegrationEvent, IntegrationUpdate};
 use crate::log;
 use crate::secrets;
 use serde_json::{json, Value};
@@ -20,15 +20,20 @@ pub(super) async fn poll_n8n(app: AppHandle) {
     ];
 
     let mut items: Option<Vec<Value>> = None;
+    let mut transport_err: Option<reqwest::Error> = None;
     for url in &list_urls {
-        let Ok(response) = http
+        let response = match http
             .get(url)
             .header("X-N8N-API-KEY", &key)
             .header("Accept", "application/json")
             .send()
             .await
-        else {
-            continue;
+        {
+            Ok(r) => r,
+            Err(err) => {
+                transport_err = Some(err);
+                continue;
+            }
         };
         if !response.status().is_success() {
             // Only the status: a self-hosted base URL can carry credentials.
@@ -49,6 +54,9 @@ pub(super) async fn poll_n8n(app: AppHandle) {
     }
 
     let Some(first) = items.and_then(|list| list.into_iter().next()) else {
+        if let Some(err) = transport_err {
+            emit_transport_error(&app, "integration_n8n", err);
+        }
         return;
     };
     let id = match first.get("id") {

@@ -1,4 +1,6 @@
-use super::{client, emit, is_new, status_error, IntegrationEvent, IntegrationUpdate};
+use super::{
+    client, emit, emit_transport_error, is_new, status_error, IntegrationEvent, IntegrationUpdate,
+};
 use crate::secrets;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -77,7 +79,13 @@ pub(super) async fn poll_stripe(app: AppHandle) {
         .header("Authorization", &auth)
         .send()
         .await;
-    let Ok(response) = charges else { return };
+    let response = match charges {
+        Ok(r) => r,
+        Err(err) => {
+            emit_transport_error(&app, "integration_stripe", err);
+            return;
+        }
+    };
     if !response.status().is_success() {
         return;
     }

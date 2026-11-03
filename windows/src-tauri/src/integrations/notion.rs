@@ -1,4 +1,4 @@
-use super::{client, emit, status_error, IntegrationUpdate};
+use super::{client, emit, emit_transport_error, status_error, IntegrationUpdate};
 use crate::secrets;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -20,7 +20,13 @@ pub(super) async fn poll_notion(app: AppHandle) {
         }))
         .send()
         .await;
-    let Ok(response) = response else { return };
+    let response = match response {
+        Ok(r) => r,
+        Err(err) => {
+            emit_transport_error(&app, "integration_notion", err);
+            return;
+        }
+    };
     if !response.status().is_success() {
         emit(
             &app,

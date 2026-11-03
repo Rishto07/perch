@@ -1,4 +1,4 @@
-use super::{client, emit, status_error, IntegrationUpdate};
+use super::{client, emit, emit_transport_error, status_error, IntegrationUpdate};
 use crate::secrets;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -18,7 +18,13 @@ pub(super) async fn poll_github(app: AppHandle) {
         .header("User-Agent", "Perch")
         .send()
         .await;
-    let Ok(response) = user else { return };
+    let response = match user {
+        Ok(r) => r,
+        Err(err) => {
+            emit_transport_error(&app, "integration_github", err);
+            return;
+        }
+    };
     if !response.status().is_success() {
         emit(
             &app,
