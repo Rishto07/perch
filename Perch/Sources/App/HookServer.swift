@@ -725,7 +725,6 @@ final class HookServer: @unchecked Sendable {
         return try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys])
     }
     #endif
-}
 
     // MARK: - Other coding agents (Codex, OpenCode, …)
 
@@ -1202,6 +1201,7 @@ export const Hook: Plugin = async () => ({
         _ = install
         return notes.isEmpty ? "No change." : (install ? "OpenCode connected (" : "OpenCode disconnected (") + notes.joined(separator: ", ") + ")."
     }
+}
 
     // MARK: - Notification names for hook server → controller communication
 
