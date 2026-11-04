@@ -3,13 +3,14 @@
 mod commands;
 
 mod agents;
-mod claude;
+mod chat;
 mod files;
 mod hooks;
 mod integrations;
 mod island;
 mod log;
 mod pipe;
+mod providers;
 mod secrets;
 mod settings;
 mod settings_window;
@@ -23,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri_plugin_autostart::MacosLauncher;
 
-use crate::claude::Chat;
+use crate::chat::Chat;
 use crate::island::PollGate;
 use crate::pipe::Pending;
 
@@ -72,6 +73,7 @@ pub fn run() {
             commands::misc::log_line,
             commands::chat::chat_send,
             commands::chat::chat_reset,
+            commands::chat::chat_providers,
             commands::files::ingest_file,
             commands::secrets::secret_present,
             commands::secrets::secret_set,

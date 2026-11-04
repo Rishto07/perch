@@ -63,7 +63,7 @@ each one gets its own pill in the island.
 
 ## Chat and keys
 
-**Settings… → Claude** takes your Anthropic API key. Keys live in the **Windows
+**Settings -> Chat** takes your provider key - Claude, OpenAI, Gemini, Mistral, Groq, OpenRouter or a local Ollama. Keys live in the **Windows
 Credential Manager**, never on disk and never in the interface — the island can
 only ask whether a key exists. Same for every integration key.
 

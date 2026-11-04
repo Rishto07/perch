@@ -92,6 +92,8 @@ export const Bridge = {
   chatSend: (query: string, context: ChatContext | null) =>
     callOrThrow<{ text: string }>("chat_send", { query, context }),
   chatReset: () => call<void>("chat_reset"),
+  /** Provider registry for the Settings dropdown — static data, no secrets. */
+  chatProviders: () => call<ProviderInfo[]>("chat_providers"),
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
   /** Only ever tells you whether a key exists — never its value. */
@@ -138,6 +140,19 @@ export interface HookPreview {
   settingsPath: string;
   /** Hand back to hooksApply so only the reviewed diff is ever written. */
   fingerprint: string;
+}
+
+export interface ProviderInfo {
+  id: string;
+  name: string;
+  keyHint: string;
+  requiresApiKey: boolean;
+  /** Credential Manager key for this provider's API key (null for Ollama). */
+  credentialKey: string | null;
+  /** Credential Manager key for an editable endpoint (Ollama only). */
+  urlKey: string | null;
+  webSearch: boolean;
+  models: { id: string; label: string }[];
 }
 
 export interface AgentStatus {

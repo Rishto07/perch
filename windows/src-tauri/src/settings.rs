@@ -20,10 +20,18 @@ pub struct Settings {
     /// Defaulted explicitly so a settings.json written by an older build still loads.
     #[serde(default = "default_model")]
     pub model: String,
+    /// Which chat provider the island uses. "anthropic" by default.
+    /// Empty/missing = anthropic, for backwards compatibility.
+    #[serde(default = "default_llm_provider")]
+    pub llm_provider: String,
 }
 
 fn default_model() -> String {
-    crate::claude::DEFAULT_MODEL.to_string()
+    crate::providers::PROVIDERS[0].default_model().to_string()
+}
+
+fn default_llm_provider() -> String {
+    crate::providers::PROVIDERS[0].id().to_string()
 }
 
 impl Default for Settings {
@@ -43,6 +51,7 @@ impl Default for Settings {
             autostart: false,
             hooks_installed: false,
             model: default_model(),
+            llm_provider: default_llm_provider(),
         }
     }
 }

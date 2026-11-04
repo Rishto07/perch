@@ -94,6 +94,26 @@ final class AppState: ObservableObject {
         }
     }
 
+    // Chat provider and model — persisted. Provider ids come from LLMProvider.
+    @Published var llmProvider: String = LLMProvider.fallback.id {
+        didSet { UserDefaults.standard.set(llmProvider, forKey: "llmProvider") }
+    }
+    @Published var chatModel: String = LLMProvider.fallback.defaultModel {
+        didSet { UserDefaults.standard.set(chatModel, forKey: "chatModel") }
+    }
+
+    /// The provider the island is chatting with right now.
+    var activeProvider: LLMProvider { LLMProvider.lookup(llmProvider) }
+
+    /// The chosen model, or the provider's default when the stored one belongs
+    /// to a different provider (or Ollama lets the user name a custom model).
+    var activeModel: String {
+        let provider = activeProvider
+        return provider.id == "ollama" || provider.offers(chatModel)
+            ? chatModel
+            : provider.defaultModel
+    }
+
     // Context for prompt (window attach / file)
     @Published var promptContext: PromptContext? = nil
 
@@ -200,6 +220,8 @@ final class AppState: ObservableObject {
 
         if let v = ud.object(forKey: "soundEnabled") as? Bool   { soundEnabled = v }
         if let v = ud.object(forKey: "soundVolume")  as? Double { soundVolume  = v }
+        if let v = ud.string(forKey: "llmProvider") { llmProvider = v }
+        if let v = ud.string(forKey: "chatModel")   { chatModel   = v }
         // Migrate old 60s default → 15s
         if let v = ud.object(forKey: "autoCloseInterval") as? Double {
             autoCloseInterval = (v == 60) ? 15 : v
