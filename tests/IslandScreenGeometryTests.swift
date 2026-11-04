@@ -45,8 +45,8 @@ enum IslandScreenGeometryTests {
             precondition(compact.botDiameter == min(20, height - 6))
             precondition(compact.botCenterY - compact.botDiameter / 2 >= 3)
             precondition(compact.botCenterY + compact.botDiameter / 2 <= height - 3)
-            precondition(compact.miniGridCenterX == 200)
-            precondition(compact.miniGridScale * 28 <= height - 4)
+            precondition(compact.railCenterX == 200)
+            precondition(compact.railScale * 28 <= height - 4)
         }
         print("Island screen geometry and resting layout: 13 cases passed")
     }
