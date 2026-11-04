@@ -569,60 +569,63 @@ body {
   fill: #10131a;
 }
 
-.token .lbl {
-  max-width: 100%;
-  font: 600 9px var(--font);
-  color: var(--dim-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.18s;
+/* The bird's skin: blinking (transform-origin at the eye), a lean toward
+   the mouse, and a springy hover hop.  All other motion stays on the bird
+   itself; the GSAP-like feel comes from CSS transitions not keyframes. */
+
+.token .eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: token-blink 3.2s ease-in-out infinite;
 }
 
+@keyframes token-blink {
+  0%, 92%, 100% { transform: scaleY(1) scaleX(1); }
+  94% { transform: scaleY(0.12) scaleX(1); }
+  96% { transform: scaleY(1) scaleX(1); }
+}
+
+.token .bird {
+  transform-origin: 50% 85%;
+}
+
+.token hovering {
+  /* a tiny lean when the mouse is nearby; island.ts sets --leanX */
+  transform: translateX(var(--leanX, 0px)) rotate(var(--leanR, 0deg));
+}
+
+/* Spring feel on hover: a quick lift, then settle. */
 .token:hover {
   transform: translateY(-3px);
   filter: brightness(1.15);
 }
 
-.token:hover .lbl {
-  color: currentColor;
-}
-
-/* ── Token motion: the state language ───────────────────────────────────── */
-
+/* Smooth idle breathing stays on the body, not the eye. */
 @keyframes token-breathe {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-0.4px) scale(1.035); }
 }
-
 @keyframes token-work {
   0%, 100% { transform: rotate(-2.2deg) translateY(0); }
   50% { transform: rotate(2.2deg) translateY(-1px); }
 }
-
 @keyframes token-hop {
   0%, 64%, 100% { transform: translateY(0); }
   74% { transform: translateY(-3px); }
   84% { transform: translateY(0); }
 }
-
 @keyframes token-flick {
   0% { transform: rotate(0); }
   7% { transform: rotate(-14deg); }
   16% { transform: rotate(6deg); }
   25%, 100% { transform: rotate(0); }
 }
-
 @keyframes token-ruffle {
   0%, 100% { transform: rotate(0); }
   9% { transform: rotate(9deg); }
   18% { transform: rotate(-7deg); }
   27% { transform: rotate(4deg); }
   36% { transform: rotate(0); }
-}
-
-.token .bird {
-  transform-origin: 50% 50%;
 }
 
 .token[data-state="idle"] .bird {
@@ -659,7 +662,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .token .bird {
+  .token .bird,
+  .token .eye {
     animation: none !important;
   }
 }

@@ -154,9 +154,15 @@ struct PerchedBirdMark: View {
     let color: Color
     let size: CGFloat
     let state: BotState
+    var mouse: CGPoint = .zero
+    var lookAtMouse: Bool = false
+
+    @State private var blink: Double = 0
+    @State private var nextBlink: Date = .now.addingTimeInterval(1)
+    @State private var lookOffset: CGSize = .zero
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             Canvas { context, canvas in
                 draw(&context, canvas: canvas, time: timeline.date.timeIntervalSinceReferenceDate)
             }
@@ -164,10 +170,39 @@ struct PerchedBirdMark: View {
         .frame(width: size, height: size)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .onAppear {
+            scheduleBlink()
+        }
+    }
+
+    private func scheduleBlink() {
+        let delay = Double.random(in: 2.2...4.5)
+        nextBlink = Date().addingTimeInterval(delay)
+    }
+
+    private func currentBlinkAmount(now: Date) -> Double {
+        if now >= nextBlink {
+            withAnimation(.easeInOut(duration: 0.06)) { blink = 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                withAnimation(.easeInOut(duration: 0.06)) { blink = 0 }
+                scheduleBlink()
+            }
+        }
+        return blink
     }
 
     private func draw(_ context: inout GraphicsContext, canvas: CGSize, time: TimeInterval) {
         let motion = motion(at: time)
+        let blinkVal = currentBlinkAmount(now: Date())
+
+        var lookX: CGFloat = 0
+        var lookY: CGFloat = 0
+        if lookAtMouse && mouse != .zero {
+            lookX = max(-0.5, min(0.5, (mouse.x - canvas.width/2) / 200))
+            lookY = max(-0.3, min(0.3, (mouse.y - canvas.height/2) / 200))
+        }
+        lookOffset = CGSize(width: lookX * 3, height: lookY * 2)
+
         let unit = min(canvas.width, canvas.height) / 24
         let mid = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
 
@@ -187,9 +222,10 @@ struct PerchedBirdMark: View {
             )
         }
 
-        context.translateBy(x: mid.x, y: mid.y + motion.lift * unit)
+        context.translateBy(x: mid.x + lookOffset.width * unit,
+                            y: mid.y + motion.lift * unit + lookOffset.height * unit)
         context.rotate(by: .degrees(motion.rotation))
-        context.scaleBy(x: unit * motion.scale, y: unit * motion.scale)
+        context.scaleBy(x: unit * motion.scale, y: unit * motion.scale * (1 - blinkVal * 0.85))
         context.translateBy(x: -12, y: -12)
 
         let body = Self.body
