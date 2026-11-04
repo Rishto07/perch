@@ -1,7 +1,6 @@
 // App state — mirror of AppState.swift (the parts the island needs).
 
-import type { BotEmoteName, BotStateName, IslandMode, IslandViewName } from "./layout";
-import type { EyeShape } from "../pip/engine";
+import type { BotStateName, IslandMode, IslandViewName } from "./layout";
 
 export type AgentSource = "claudeCode" | "codex" | "opencode" | "zcode" | "generic" | "n8n";
 export type PillBadge = "approval" | "finished" | "error";
@@ -15,8 +14,6 @@ export interface AgentTask {
   steps: string[];
   source: AgentSource;
   isIntegration: boolean;
-  emote?: BotEmoteName | null;
-  miniEye?: EyeShape | null;
   pillBadge?: PillBadge | null;
   sessionCwd?: string | null;
 }

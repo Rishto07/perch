@@ -500,21 +500,46 @@ private func drawHeader(_ ctx: CGContext, alpha: Double) {
     ctx.restoreGState()
 }
 
-private let miniColors = ["#E86A6A","#3E86E0","#EFAE5A","#8C73F2"]
+private let perchedColors = ["#E86A6A", "#3E86E0", "#EFAE5A", "#8C73F2"]
 
-private func drawMinis(_ ctx: CGContext, alpha: Double, compact: IslandRestingLayout) {
+/// The perched-bird glyph in greeting space, centred on the origin and
+/// sitting at the rail height.
+private func birdPath(_ scale: CGFloat) -> CGPath {
+    let path = CGMutablePath()
+    func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+        CGPoint(x: (x - 12) * scale, y: (y - 8.0) * scale)
+    }
+    path.move(to: pt(12.5, 5.2))
+    path.addCurve(to: pt(16.6, 4.6), control1: pt(14.0, 4.2), control2: pt(15.5, 4.2))
+    path.addLine(to: pt(19.2, 0.7))
+    path.addLine(to: pt(19.9, 5.0))
+    path.addCurve(to: pt(20.7, 7.6), control1: pt(20.5, 6.2), control2: pt(20.7, 6.8))
+    path.addCurve(to: pt(23.0, 9.7), control1: pt(21.5, 8.6), control2: pt(22.2, 9.2))
+    path.addCurve(to: pt(19.8, 11.0), control1: pt(21.8, 10.6), control2: pt(20.6, 10.9))
+    path.addCurve(to: pt(16.5, 15.0), control1: pt(18.5, 12.5), control2: pt(17.8, 13.8))
+    path.addCurve(to: pt(11.0, 18.6), control1: pt(14.5, 17.5), control2: pt(12.8, 18.5))
+    path.addCurve(to: pt(6.0, 18.2), control1: pt(8.5, 18.9), control2: pt(7.2, 18.6))
+    path.addCurve(to: pt(3.9, 14.6), control1: pt(4.8, 17.2), control2: pt(4.2, 16.0))
+    path.addCurve(to: pt(7.0, 12.0), control1: pt(5.5, 13.0), control2: pt(6.2, 12.5))
+    path.addCurve(to: pt(10.5, 8.0), control1: pt(8.5, 10.5), control2: pt(9.5, 9.0))
+    path.addCurve(to: pt(12.5, 5.2), control1: pt(11.0, 6.5), control2: pt(11.5, 5.8))
+    path.closeSubpath()
+    return path
+}
+
+private func drawTokens(_ ctx: CGContext, alpha: Double, compact: IslandRestingLayout) {
     guard alpha > 0.01 else { return }
-    let cx = 320 - compact.width/2 + compact.miniGridCenterX
-    let cy = compact.botCenterY
-    let sp: CGFloat = 6 * compact.miniGridScale
-    let offsets: [(CGFloat, CGFloat)] = [(-sp,-sp),(sp,-sp),(-sp,sp),(sp,sp)]
-    for (i,(dx,dy)) in offsets.enumerated() {
+    let cx = 320 - compact.width/2 + compact.railCenterX
+    let cy = compact.botCenterY + 1
+    let scale = CGFloat(alpha) * compact.railScale
+    let gap: CGFloat = 11 * compact.railScale
+    let slots: [CGFloat] = [-1.5, -0.5, 0.5, 1.5]
+    for (i, slot) in slots.enumerated() {
         ctx.saveGState()
-        ctx.translateBy(x: cx+dx, y: cy+dy)
-        let scale = CGFloat(alpha) * compact.miniGridScale
-        ctx.scaleBy(x: scale, y: scale)
-        ctx.setFillColor(gHex(miniColors[i]))
-        ctx.addPath(pipPath(hw: 5.3, hh: 4)); ctx.fillPath()
+        ctx.translateBy(x: cx + slot * gap, y: cy)
+        ctx.setFillColor(gHex(perchedColors[i], alpha: CGFloat(alpha)))
+        ctx.addPath(birdPath(0.46 * scale))
+        ctx.fillPath()
         ctx.restoreGState()
     }
 }
@@ -546,7 +571,7 @@ private func drawGreeting(_ ctx: CGContext, size: CGSize, t: Double, tc: Double,
     }
 
     // drawHeader: no icons during greeting
-    drawMinis(ctx, alpha: p.minis, compact: compact)
+    drawTokens(ctx, alpha: p.minis, compact: compact)
     drawPip(ctx, p: p)
 }
 

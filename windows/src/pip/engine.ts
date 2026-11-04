@@ -67,7 +67,6 @@ const EYE_P = -0.12;
 const BASE_TOP: RGB = [0.929, 0.929, 0.937]; // #EDEDEF
 const BASE_BOTTOM: RGB = [0.769, 0.773, 0.792]; // #C4C5CA
 const INK = "rgb(26,20,18)"; // #1A1412
-const MINI_INK = "rgb(16,19,26)"; // #10131A
 
 const C = {
   idle: [0.902, 0.914, 0.933] as RGB,
@@ -165,8 +164,7 @@ const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif`;
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 export class BotEngine {
-  isMini = false;
-  /** Solid body colour for mini bots / integration pills (null = Pip gradient). */
+  /** Solid body colour for integration pills (null = Pip gradient). */
   bodyColor: RGB | null = null;
 
   // Animated state (BotEngine `s`)
@@ -192,9 +190,6 @@ export class BotEngine {
   eyeOverride: EyeShape | null = null;
   eyeOverrideUntil = 0;
   permanentEye: EyeShape | null = null;
-  permanentEmote: BotEmoteName | null = null;
-  miniNextBehavior = 0;
-
   badge: Badge | null = null;
   private badgeKey = "none";
   private badgeToken = 0;
@@ -214,8 +209,6 @@ export class BotEngine {
   private greetToken = 0;
   private lastAmbient = 0;
   private slapTimes: number[] = [];
-  private miniLookTarget = { x: 0, y: 0 };
-  private miniLookNextTime = 0;
 
   /** Fired when three slaps land inside 1.7 s (→ dizzy + confused view). */
   onDizzy: (() => void) | null = null;
@@ -360,23 +353,6 @@ export class BotEngine {
     this.anim("hands", [[0, 150, Ease.inOut]]);
   }
 
-  setPermanentEmote(emote: BotEmoteName | null) {
-    this.permanentEmote = emote;
-    if (emote === "wink") {
-      this.miniNextBehavior = now() + 0.8 + Math.random() * 1.7;
-      return;
-    }
-    this.permanentEye = emote ? EMOTE_EYE[emote] : null;
-    if (this.permanentEye) {
-      this.eyeOverride = this.permanentEye;
-      this.eyeOverrideUntil = Number.POSITIVE_INFINITY;
-    } else if (this.eyeOverrideUntil === Number.POSITIVE_INFINITY) {
-      this.eyeOverride = null;
-      this.eyeOverrideUntil = 0;
-    }
-    this.miniNextBehavior = now() + 0.8 + Math.random() * 1.7;
-  }
-
   triggerEmote(emote: BotEmoteName, duration = 1.8) {
     const t = now();
     this.eyeOverride = EMOTE_EYE[emote];
@@ -458,7 +434,6 @@ export class BotEngine {
       this.tweens.size > 0 ||
       this.particles.length > 0 ||
       this.cfg.bounces || this.cfg.scans || this.cfg.breathes || this.cfg.zz || this.cfg.sweat ||
-      this.isMini ||
       Math.abs(this.tgYaw - this.yaw) > 0.002 ||
       Math.abs(this.tgPitch - this.pitch) > 0.002 ||
       Math.abs(this.tgTilt - this.tilt) > 0.002 ||
@@ -518,19 +493,6 @@ export class BotEngine {
     if (this.state === "sleeping") { ty = 0; tp = -0.14; }
     if (this.state === "dizzy") { ty = Math.sin(t * 9) * 0.25; }
 
-    // Mini bots never follow the mouse — they wander.
-    if (this.isMini && !this.cfg.look && !this.cfg.scans && this.state !== "sleeping" && this.state !== "dizzy") {
-      if (n > this.miniLookNextTime) {
-        this.miniLookTarget = {
-          x: -0.88 + Math.random() * 1.76,
-          y: -0.55 + Math.random() * 1.0,
-        };
-        this.miniLookNextTime = n + 0.5 + Math.random() * 1.5;
-      }
-      ty = this.miniLookTarget.x * 0.62;
-      tp = this.miniLookTarget.y * 0.5;
-    }
-
     this.tgYaw = ty;
     this.tgPitch = tp;
     this.tgTilt = this.cfg.tilt;
@@ -545,18 +507,13 @@ export class BotEngine {
     if (!this.locks.has("oy")) this.oy += (bounce - this.oy) * kGen;
 
     if (this.cfg.breathes) {
-      const amp = this.isMini ? 0.07 : 0.035;
+      const amp = 0.035;
       this.tgSy = 1 + Math.sin(t * 1.8) * amp;
       this.tgSx = 1 - Math.sin(t * 1.8) * amp * 0.57;
-    } else if (this.isMini) {
-      this.tgSy = 1 + Math.sin(t * 2.2) * 0.04;
-      this.tgSx = 1 - Math.sin(t * 2.2) * 0.02;
     } else {
       this.tgSy = 1;
       this.tgSx = 1;
     }
-
-    if (this.isMini && n > this.miniNextBehavior) this.doMiniBehaviorLoop();
 
     const kLook = 1 - Math.pow(0.0025, dt);
     if (!this.locks.has("yaw")) this.yaw += (this.tgYaw - this.yaw) * kLook;
@@ -577,14 +534,13 @@ export class BotEngine {
     }
 
     if (this.eyeOverride && n > this.eyeOverrideUntil) {
-      this.eyeOverride = this.permanentEye;
-      if (this.permanentEye) this.eyeOverrideUntil = Number.POSITIVE_INFINITY;
+      this.eyeOverride = null;
     }
 
     if (n - this.lastAmbient > 1.3) {
       this.lastAmbient = n;
       if (this.cfg.zz) this.emit("z", 1);
-      if (!this.isMini && this.cfg.sweat && Math.random() < 0.5) this.emit("sweat", 1);
+      if (this.cfg.sweat && Math.random() < 0.5) this.emit("sweat", 1);
     }
 
     for (const p of this.particles) p.age += dt;
@@ -598,40 +554,6 @@ export class BotEngine {
     this.slotH = Math.max(0, this.slotH + this.slotHVel * dt);
 
     this.lastTime = n;
-  }
-
-  private doMiniBehaviorLoop() {
-    const n = now();
-    switch (this.permanentEmote) {
-      case "happy":
-        if (this.locks.has("oy")) { this.miniNextBehavior = n + 0.4; return; }
-        this.anim("oy", [[-0.3, 120, Ease.out], [0.03, 200, Ease.inOut], [0, 160, Ease.back]]);
-        this.anim("sy", [[0.82, 80, Ease.out], [1.18, 130, Ease.out], [0.88, 160, Ease.inOut], [1, 200, Ease.back]]);
-        this.anim("sx", [[1.15, 80, Ease.out], [0.88, 130, Ease.out], [1.06, 160, Ease.inOut], [1, 200, Ease.back]]);
-        this.miniNextBehavior = n + 2.2 + Math.random() * 1.2;
-        break;
-      case "annoyed":
-        if (this.locks.has("yaw")) { this.miniNextBehavior = n + 0.5; return; }
-        this.anim("yaw", [
-          [-0.65, 50, Ease.out], [0.65, 90, Ease.inOut], [-0.5, 80, Ease.inOut],
-          [0.4, 75, Ease.inOut], [-0.2, 70, Ease.inOut], [0, 140, Ease.out],
-        ]);
-        this.miniNextBehavior = n + 3.0 + Math.random() * 2.5;
-        break;
-      case "wink":
-        this.eyeOverride = "wink";
-        this.eyeOverrideUntil = n + 0.55;
-        this.anim("tilt", [[0.13, 100, Ease.out], [0.13, 320, Ease.lin], [0, 200, Ease.inOut]]);
-        this.miniNextBehavior = n + 2.2 + Math.random() * 2.0;
-        break;
-      case "love":
-        this.emit("heart", 2);
-        this.anim("tilt", [[-0.1, 180, Ease.out], [0.1, 340, Ease.inOut], [0, 220, Ease.inOut]]);
-        this.miniNextBehavior = n + 2.6 + Math.random() * 1.5;
-        break;
-      default:
-        this.miniNextBehavior = n + 3.0 + Math.random() * 2.0;
-    }
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
@@ -795,7 +717,7 @@ export class BotEngine {
 
     x.save();
     x.clip(body);
-    const ink = this.isMini ? MINI_INK : INK;
+    const ink = INK;
     x.fillStyle = ink;
     x.strokeStyle = ink;
 
@@ -810,7 +732,7 @@ export class BotEngine {
       const ey = -Math.sin(eyePitch) * ry + (this.morph > 0 ? ry * 0.14 * this.morph : 0);
       const fx = lerp(Math.max(0.18, Math.cos(eyeYaw)), 1, this.morph * 0.7);
       const fy = lerp(Math.max(0.18, cp), 1, this.morph * 0.7);
-      const eyeMult = this.isMini ? 1.9 : 1.0;
+      const eyeMult = 1.0;
       const ew = R * EYE_W * this.es * eyeMult;
       const eh = R * EYE_H * this.es * eyeMult;
 
@@ -976,7 +898,7 @@ export class BotEngine {
     x: CanvasRenderingContext2D,
     R: number, rx: number, ry: number, cx: number, cy: number,
   ) {
-    if (this.hands <= 0.01 || this.isMini) return;
+    if (this.hands <= 0.01) return;
     if (R <= 14) return; // meaningless at compact/peek sizes
 
     const n = now();
@@ -1042,7 +964,7 @@ export class BotEngine {
   }
 
   private drawBadge(x: CanvasRenderingContext2D, badge: Badge, R: number, cx: number, cy: number) {
-    const bs = this.badgeS * (this.isMini ? 1.25 : 1);
+    const bs = this.badgeS;
     const bx = cx - R * 0.72 * this.sx;
     const by = cy - R * 0.72 * this.sy;
     const t = now();
@@ -1053,18 +975,7 @@ export class BotEngine {
     const col = rgba(badge.color);
 
     if (badge.kind === "dots") {
-      if (this.isMini) {
-        const phase = (t * 2.4) % 1;
-        const dotR = R * 0.22 * (1 + 0.25 * Math.sin(phase * Math.PI * 2));
-        x.fillStyle = "#000";
-        x.beginPath();
-        x.arc(0, 0, R * 0.2, 0, Math.PI * 2);
-        x.fill();
-        x.fillStyle = col;
-        x.beginPath();
-        x.arc(0, 0, dotR, 0, Math.PI * 2);
-        x.fill();
-      } else {
+      {
         const pw = R * 0.72;
         const ph = R * 0.36;
         roundRectPath(x, -pw / 2, -ph / 2, pw, ph, ph / 2);
@@ -1088,7 +999,7 @@ export class BotEngine {
       x.beginPath();
       x.arc(0, 0, R * 0.23, 0, Math.PI * 2);
       x.fill();
-      if (!this.isMini) {
+      {
         x.fillStyle = "#fff";
         x.font = `900 ${R * 0.32}px ${FONT}`;
         x.textAlign = "center";
