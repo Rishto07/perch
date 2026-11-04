@@ -1,5 +1,7 @@
 <div align="center">
 
+<picture><source media="(prefers-color-scheme: dark)" srcset="../docs/media/logo-light.png"><img src="../docs/media/logo.png" alt="Perch" width="280"></picture>
+
 # Perch for Windows
 
 **Pip doesn't get a notch on a PC — so it lives at the top of your screen instead.**

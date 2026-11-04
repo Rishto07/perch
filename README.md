@@ -1,5 +1,7 @@
 <div align="center">
 
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/logo-light.png"><img src="docs/media/logo.png" alt="Perch" width="280"></picture>
+
 # Perch
 
 **A tiny friend that lives in your Mac's notch — or at the top of your screen on Windows — and keeps an eye on your coding-agent sessions.**

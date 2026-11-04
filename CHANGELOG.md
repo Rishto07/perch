@@ -2,6 +2,9 @@
 
 ## Unreleased (Perch)
 
+- New logo and icon set: the coral-bird artwork is now canonical SVG
+  (`design/perch.svg`, `design/perch-menubar.svg`); every app icon, tray icon,
+  menubar template, favicon and the GitHub social card are rendered from it.
 - One-click setup for every agent: Settings → Other coding agents detects
   installed CLIs and installs agent hooks with backup/diff/confirm guarantees,
   plus a Connect-all button.
