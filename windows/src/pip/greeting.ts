@@ -265,66 +265,40 @@ function pipPath(hw: number, hh: number): Path2D {
   return p;
 }
 
-function whiteFill(
-  x: CanvasRenderingContext2D, path: Path2D,
-  x0: number, y0: number, x1: number, y1: number,
-) {
-  const g = x.createLinearGradient(x0, y0, x1, y1);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
-  x.save();
-  x.fillStyle = g;
-  x.fill(path);
-  x.restore();
-}
+function drawBirdWings(x: CanvasRenderingContext2D, hw: number, hh: number) {
+  // Animated wing beat based on time
+  const t = performance.now() / 1000;
+  const wingAngle = Math.sin(t * 8) * 0.3 + 0.5; // oscillating wing flap
 
-function drawHandL(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose) {
-  const k = p.handL;
-  if (k <= 0.01) return;
-  const hb = hh * 2;
-  const r = hb * 0.15 * k;
-  const rx = lerp(-hw * 0.35, -hw - hb * 0.22, k);
-  let ry = lerp(hh * 0.85, hh * 0.62, k);
-  if (p.wave >= 0) ry += Math.sin(p.wave * 6) * hb * 0.02;
-  x.save();
-  x.translate(rx, ry);
-  const circ = new Path2D();
-  circ.ellipse(0, 0, r, r, 0, 0, Math.PI * 2);
-  whiteFill(x, circ, r, -r, -r, r);
-  x.strokeStyle = "rgba(0,0,0,0.08)";
-  x.lineWidth = 0.8;
-  x.stroke(circ);
-  x.restore();
-}
+  for (const sd of [-1, 1]) {
+    x.save();
+    // Wing base position (on the body)
+    const wingX = sd * hw * 0.6;
+    const wingY = -hh * 0.2;
+    x.translate(wingX, wingY);
+    x.rotate(sd * wingAngle);
+    x.scale(1, 0.6);
 
-function drawHandR(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose) {
-  const k = p.handR;
-  if (k <= 0.01) return;
-  const hb = hh * 2;
-  const L = hb * 0.4 * k;
-  const T2 = hb * 0.22 * k;
-  let rx = lerp(hw * 0.35, hw + hb * 0.2, k);
-  let ry = lerp(hh * 0.85, hh * 0.2, k);
-  let ang = -0.61;
-  if (p.wave >= 0) {
-    const w = p.wave * 2 * Math.PI * 2.5;
-    ang += Math.sin(w) * 0.21;
-    ry += Math.sin(w + 0.8) * hb * 0.04;
-    rx += Math.cos(w) * hb * 0.015;
+    // Draw feathered wing
+    x.beginPath();
+    x.moveTo(0, 0);
+    const wW = hw * 0.9;
+    const wH = hh * 0.7;
+    x.quadraticCurveTo(-wW * 0.3, -wH, -wW * 0.8, -wH * 0.6);
+    x.quadraticCurveTo(-wW * 0.5, -wH * 0.2, 0, 0);
+    x.closePath();
+
+    // Wing color (slightly darker than body)
+    const g = x.createLinearGradient(0, -wH, 0, 0);
+    g.addColorStop(0, "rgb(245,246,248)");
+    g.addColorStop(1, "rgb(225,227,230)");
+    x.fillStyle = g;
+    x.fill();
+    x.strokeStyle = "rgba(0,0,0,0.12)";
+    x.lineWidth = 0.6;
+    x.stroke();
+    x.restore();
   }
-  x.save();
-  x.translate(rx, ry);
-  x.rotate(ang);
-  const g = x.createLinearGradient(L / 2, -T2 / 2, -L / 2, T2 / 2);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
-  rr(x, -L / 2, -T2 / 2, L, T2, T2 / 2);
-  x.fillStyle = g;
-  x.fill();
-  x.strokeStyle = "rgba(0,0,0,0.08)";
-  x.lineWidth = 0.8;
-  x.stroke();
-  x.restore();
 }
 
 function drawPip(x: CanvasRenderingContext2D, p: Pose) {
@@ -354,71 +328,52 @@ function drawPip(x: CanvasRenderingContext2D, p: Pose) {
   x.rotate(p.tilt);
   x.scale(p.sx, p.sy);
 
-  drawHandL(x, hw, hh, p);
-  drawHandR(x, hw, hh, p);
+  // Draw bird wings (behind body)
+  drawBirdWings(x, hw, hh);
 
-  // Pip's head tuft — two small feathers behind the body
-  for (const sd of [-1, 1]) {
-    const fw = hw * 0.24;
-    const fh = hh * 0.5;
-    const fcx = sd * hw * 0.16;
-    const fcy = -hh - hh * 0.14;
-    x.save();
-    x.translate(fcx, fcy);
-    x.rotate(sd * -0.38);
-    const feather = new Path2D();
-    feather.ellipse(0, 0, fw / 2, fh / 2, 0, 0, Math.PI * 2);
-    whiteFill(x, feather, 0, -fh / 2, 0, fh / 2);
-    x.restore();
-  }
+  // Bird tail (pointed, fans out slightly)
+  const tailOpen = 0.15;
+  x.beginPath();
+  x.moveTo(-hw * 0.2, hh * 0.6);
+  x.quadraticCurveTo(-hw * 0.5, hh * 0.9 + tailOpen * hh, -hw * 0.7, hh * 1.0);
+  x.quadraticCurveTo(-hw * 0.3, hh * 0.95, hw * 0.1, hh * 0.7);
+  x.closePath();
+  const tailGrad = x.createLinearGradient(-hw * 0.7, hh * 0.7, hw * 0.1, hh * 1.0);
+  tailGrad.addColorStop(0, "rgb(245,246,248)");
+  tailGrad.addColorStop(1, "rgb(231,233,236)");
+  x.fillStyle = tailGrad;
+  x.fill();
+  x.strokeStyle = "rgba(0,0,0,0.1)";
+  x.lineWidth = 0.6;
+  x.stroke();
 
+  // Bird beak (pointed, facing right)
+  x.beginPath();
+  x.moveTo(hw * 0.6, -hh * 0.1);
+  x.lineTo(hw * 1.0, hh * 0.05);
+  x.lineTo(hw * 0.6, hh * 0.2);
+  x.closePath();
+  x.fillStyle = "#F7B32B"; // Orange beak
+  x.fill();
+  x.strokeStyle = "rgba(0,0,0,0.15)";
+  x.lineWidth = 0.6;
+  x.stroke();
+
+  // Bird body (rounded egg shape)
   const body = pipPath(hw, hh);
-  whiteFill(x, body, hw * 0.6, -hh, -hw * 0.6, hh);
+  const bodyGrad = x.createLinearGradient(-hw * 0.6, -hh, hw * 0.6, hh);
+  bodyGrad.addColorStop(0, "rgb(251,251,252)");
+  bodyGrad.addColorStop(0.7, "rgb(245,246,248)");
+  bodyGrad.addColorStop(1, "rgb(231,233,236)");
+  x.fillStyle = bodyGrad;
+  x.fill(body);
 
-  if (p.tint > 0) {
-    const g = x.createLinearGradient(0, hh, 0, -hh * 0.1);
-    g.addColorStop(0, `rgba(127,180,234,${p.tint})`);
-    g.addColorStop(1, "rgba(127,180,234,0)");
-    x.save();
-    x.clip(body);
-    x.fillStyle = g;
-    x.fill(body);
-    x.restore();
-  }
-
-  // Eyes
-  x.save();
-  x.clip(body);
-  x.fillStyle = "#16171A";
-  x.strokeStyle = "#16171A";
-  const er = p.hb * 0.06;
-  const sp = p.hb * 0.19;
-  const lx = p.lookX * hw * 0.42;
-  const ly = p.lookY * hh * 0.28 + hh * 0.12 + p.eyeRoll * hh * 1.25;
-  for (const sd of [-1, 1]) {
-    x.save();
-    x.translate(sd * sp + lx, ly);
-    if (p.eye === "happy") {
-      x.lineWidth = er * 0.95;
-      x.lineCap = "round";
-      x.beginPath();
-      x.arc(0, er * 0.6, er * 1.25, Math.PI * 1.15, Math.PI * 1.85);
-      x.stroke();
-    } else if (p.eye === "content") {
-      x.lineWidth = er * 0.95;
-      x.lineCap = "round";
-      x.beginPath();
-      x.arc(0, -er * 0.5, er * 1.25, Math.PI * 0.15, Math.PI * 0.85);
-      x.stroke();
-    } else {
-      x.scale(1, Math.max(0.12, p.open));
-      x.beginPath();
-      x.arc(0, 0, er, 0, Math.PI * 2);
-      x.fill();
-    }
-    x.restore();
-  }
-  x.restore();
+  // Soft belly highlight
+  const hlGrad = x.createRadialGradient(-hw * 0.2, hh * 0.2, 0, -hw * 0.2, hh * 0.2, hw * 0.5);
+  hlGrad.addColorStop(0, "rgba(255,255,255,0.4)");
+  hlGrad.addColorStop(1, "rgba(255,255,255,0)");
+  x.fillStyle = hlGrad;
+  x.fill(body);
 
   // Activity badge
   if (p.badge > 0.01) {
@@ -442,6 +397,34 @@ function drawPip(x: CanvasRenderingContext2D, p: Pose) {
     }
     x.restore();
   }
+
+  // Bird eye (single, bright, on the right side)
+  x.save();
+  const eyeX = hw * 0.35;
+  const eyeY = -hh * 0.25;
+  const eyeR = hh * 0.18;
+
+  // Eye white
+  x.fillStyle = "#FFFFFF";
+  x.beginPath();
+  x.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
+  x.fill();
+
+  // Pupil
+  const pupilX = eyeX + p.lookX * hw * 0.2;
+  const pupilY = eyeY + p.lookY * hh * 0.2;
+  x.fillStyle = "#16171A";
+  x.beginPath();
+  x.arc(pupilX, pupilY, eyeR * 0.45, 0, Math.PI * 2);
+  x.fill();
+
+  // Eye highlight
+  x.fillStyle = "#FFFFFF";
+  x.beginPath();
+  x.arc(eyeX - eyeR * 0.2, eyeY - eyeR * 0.2, eyeR * 0.15, 0, Math.PI * 2);
+  x.fill();
+
+  x.restore();
 
   x.restore();
 }
