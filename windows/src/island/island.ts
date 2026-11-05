@@ -90,6 +90,7 @@ export class Island {
 
   constructor(root: HTMLElement) {
     this.root = root;
+    this.engine.shape = "bird"; // Main bot is now a bird
     this.build();
     this.wireFsm();
     this.wireInput();

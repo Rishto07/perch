@@ -4,7 +4,7 @@
 // (design/prototype/notch-buddy.html, the visual source of truth) — the Swift
 // arc angles produce a different shape.
 
-import { Ease, lerp, type EaseFn } from "../core/anim";
+import { Ease, lerp, clamp, type EaseFn } from "../core/anim";
 import { Sound } from "../core/sound";
 import type { BotEmoteName, BotStateName } from "../core/layout";
 
@@ -168,6 +168,20 @@ export class BotEngine {
   isMini = false;
   /** Solid body colour for mini bots / integration pills (null = Pip gradient). */
   bodyColor: RGB | null = null;
+
+  /**
+   * Character shape. "bot" is Pip (the rounded blob). "bird" is a small
+   * alive bird — body, two wings, tail, beak, eye — that perches, tilts,
+   * preens and chirps. Same engine, same states; only the draw differs.
+   */
+  shape: "bot" | "bird" = "bot";
+  /** Wing beat phase, in radians. 0 = folded, π = fully spread. */
+  wingPhase = 0;
+  wingVel = 0;
+  /** Tail fanned open, 0…1. */
+  tailOpen = 0;
+  /** Perch bob amplitude for the bird. */
+  birdTilt = 0;
 
   // Animated state (BotEngine `s`)
   yaw = 0; pitch = 0; roll = 0; tilt = 0; open = 1;
@@ -558,6 +572,18 @@ export class BotEngine {
 
     if (this.isMini && n > this.miniNextBehavior) this.doMiniBehaviorLoop();
 
+    // ── Bird: wings beat when alive, fold when resting; tail fans on tilt ──
+    if (this.shape === "bird") {
+      const alive = this.state !== "sleeping" && this.state !== "dizzy";
+      const target = alive ? 1 : 0;
+      this.wingVel += (target - this.wingPhase) * 0.18;
+      this.wingVel *= 0.82;
+      this.wingPhase += this.wingVel;
+      this.wingPhase = clamp(this.wingPhase, 0, 1);
+      this.tailOpen += (this.birdTilt * 0.5 + 0.5 - this.tailOpen) * 0.12;
+      this.birdTilt *= 0.9;
+    }
+
     const kLook = 1 - Math.pow(0.0025, dt);
     if (!this.locks.has("yaw")) this.yaw += (this.tgYaw - this.yaw) * kLook;
     if (!this.locks.has("pitch")) this.pitch += (this.tgPitch - this.pitch) * kLook;
@@ -647,6 +673,18 @@ export class BotEngine {
     const cx = W / 2 + this.ox * R;
     const cy = H / 2 + this.particleOverhang / 2 + this.oy * R + R * 0.06;
 
+    if (this.shape === "bird" && x) {
+      try {
+        x.clearRect(0, 0, W, H);
+        this.drawBird(x, R, cx, cy);
+        this.drawParticles(x, R, cx, cy);
+        return;
+      } catch (e) {
+        // Fall through to bot drawing on error
+        console.error("[BotEngine] drawBird failed:", e);
+      }
+    }
+
     this.drawHandsBehind(x, R, rx, ry, cx, cy);
 
     x.save();
@@ -697,7 +735,174 @@ export class BotEngine {
     this.drawParticles(x, R, cx, cy);
   }
 
-  private bodyPath(rx: number, ry: number, R: number): Path2D {
+  /**
+   * A small alive bird: round body, two wings that beat, a fanned tail, a
+   * pointed beak and a single bright eye. Drawn in the same coordinate frame
+   * as Pip (origin at body centre, R = half-width). Supports morph (mailbox),
+   * hands (greeting wave), badge, and all eye shapes.
+   */
+  private drawBird(x: CanvasRenderingContext2D, R: number, cx: number, cy: number) {
+    const rx = R * 1.0;
+    const ry = R * 0.92;
+    const body = this.bodyPath(rx, ry, R);
+
+    // Colour: solid bodyColor for integration pills, else the state tint.
+    const fill: RGB = this.bodyColor ?? mix3(this.col, [1, 1, 1], 0.18);
+
+    x.save();
+    x.translate(cx, cy);
+    if (this.tilt !== 0) x.rotate(this.tilt);
+    x.scale(this.sx, this.sy);
+
+    // ── Tail (behind the body, fans open when the bird tilts) ──
+    x.save();
+    x.rotate(Math.PI);
+    x.translate(-rx * 0.78, ry * 0.06);
+    x.scale(1, 0.55);
+    x.beginPath();
+    const tw = R * 0.85 * (0.4 + this.tailOpen * 0.6);
+    const th = R * 0.8 * (0.5 + this.tailOpen * 0.5);
+    x.moveTo(0, 0);
+    x.quadraticCurveTo(-tw * 0.5, -th, -tw, 0);
+    x.quadraticCurveTo(-tw * 0.5, th, 0, 0);
+    x.closePath();
+    x.fillStyle = rgba(fill, 1);
+    x.fill();
+    x.strokeStyle = "rgba(0,0,0,0.12)";
+    x.lineWidth = 1;
+    x.stroke();
+    x.restore();
+
+    // ── Wings (one each side, beat from folded → spread) ──
+    const wing = this.wingPhase; // 0 folded, 1 spread
+    for (const sd of [-1, 1]) {
+      x.save();
+      x.translate(sd * rx * 0.62, -ry * 0.18);
+      x.rotate(sd * (0.55 + wing * 0.55));
+      x.scale(1, 0.6);
+      x.beginPath();
+      // Feathered wing: a curved fan of 4 arcs.
+      const wW = R * 0.9 * (0.35 + wing * 0.65);
+      const wH = R * 0.75 * (0.4 + wing * 0.6);
+      x.moveTo(0, 0);
+      for (let i = 0; i <= 3; i++) {
+        const a = -Math.PI / 2 + (i / 3) * Math.PI * 0.8;
+        const rr = wW * (0.55 + 0.45 * Math.abs(Math.cos(a)));
+        x.quadraticCurveTo(
+          Math.cos(a) * rr * 0.5, Math.sin(a) * wH * 0.5,
+          Math.cos(a) * rr, Math.sin(a) * wH,
+        );
+      }
+      x.closePath();
+      x.fillStyle = rgba(fill, 1);
+      x.fill();
+      x.strokeStyle = "rgba(0,0,0,0.12)";
+      x.lineWidth = 1;
+      x.stroke();
+      x.restore();
+    }
+
+    // ── Body ──
+    x.fillStyle = rgba(fill, 1);
+    x.fill(body);
+    // Soft belly highlight
+    const hl = x.createRadialGradient(-rx * 0.28, -ry * 0.4, 0, -rx * 0.28, -ry * 0.4, R * 0.5);
+    hl.addColorStop(0, "rgba(255,255,255,0.45)");
+    hl.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = hl;
+    x.fill(body);
+
+    // ── Beak (pointed, right of centre) — morphs open during swallow ──
+    const beakOpen = this.morph * 0.6; // 0 = closed, 1 = fully open
+    x.save();
+    x.translate(rx * 0.8, ry * 0.04);
+    x.rotate(this.yaw * 0.6);
+    x.beginPath();
+    x.moveTo(0, 0);
+    if (beakOpen > 0.01) {
+      // Open beak: upper and lower mandibles separate
+      x.lineTo(R * 0.75, -R * 0.16 * (1 + beakOpen * 0.8));
+      x.lineTo(R * 0.75, R * 0.16 * (1 + beakOpen * 0.8));
+    } else {
+      // Closed beak
+      x.lineTo(R * 0.75, -R * 0.16);
+      x.lineTo(R * 0.75, R * 0.16);
+    }
+    x.closePath();
+    x.fillStyle = "#F7B32B";
+    x.fill();
+    x.strokeStyle = "rgba(0,0,0,0.18)";
+    x.lineWidth = 1;
+    x.stroke();
+    // Tongue when morphing (mailbox)
+    if (beakOpen > 0.15) {
+      x.fillStyle = "rgba(255,120,150,0.9)";
+      x.beginPath();
+      x.ellipse(R * 0.5, 0, R * 0.15, R * 0.08 * beakOpen, 0, 0, Math.PI * 2);
+      x.fill();
+    }
+    x.restore();
+
+    // ── Hands / Wings wave during greeting ──
+    if (this.hands > 0.01) {
+      const waveAmount = this.hands;
+      for (const sd of [-1, 1]) {
+        x.save();
+        // Wings raised up and forward like waving hands
+        const wingBaseY = -ry * 0.25;
+        const wingBaseX = sd * rx * 0.55;
+        x.translate(wingBaseX, wingBaseY);
+        // Wave rotation
+        x.rotate(sd * (0.3 + waveAmount * 0.8) + Math.sin(performance.now() / 100) * waveAmount * 0.15);
+        x.scale(1, 0.5);
+        x.beginPath();
+        const wW = R * 0.85 * (0.4 + waveAmount * 0.6);
+        const wH = R * 0.7 * (0.5 + waveAmount * 0.5);
+        x.moveTo(0, 0);
+        for (let i = 0; i <= 3; i++) {
+          const a = -Math.PI / 2 + (i / 3) * Math.PI * 0.8;
+          const rr = wW * (0.55 + 0.45 * Math.abs(Math.cos(a)));
+          x.quadraticCurveTo(
+            Math.cos(a) * rr * 0.5, Math.sin(a) * wH * 0.5,
+            Math.cos(a) * rr, Math.sin(a) * wH,
+          );
+        }
+        x.closePath();
+        x.fillStyle = rgba(fill, 1);
+        x.fill();
+        x.strokeStyle = "rgba(0,0,0,0.12)";
+        x.lineWidth = 1;
+        x.stroke();
+        x.restore();
+      }
+    }
+
+    // ── Eye (supports all eye shapes: pill, wide, dot, line, flat, happy, closed, spiral, heart, star, tired, wink, cup) ──
+    x.save();
+    x.clip(body);
+    let shape: EyeShape = this.eyeOverride ?? this.cfg.eye;
+    // During morph, eyes change shape like the bot
+    if (this.morph > 0.5) {
+      if (this.isChewing) shape = "happy";
+      else if (this.slotHTarget > 0.05 || this.slotH > 0.1) shape = "cup";
+    }
+    const ink = "#1A1412";
+    const eyeR = R * 0.2 * this.es;
+    // Bird has one eye on the right side (facing right)
+    x.fillStyle = ink;
+    x.strokeStyle = ink;
+    this.drawEyeShape(x, shape, eyeR * 2.2, eyeR * 2.2, 1, ink);
+    x.restore();
+
+    x.restore();
+
+    // ── Badge (state indicator) — in world coordinates ──
+    if (this.badge && this.badgeS > 0.01 && this.morph < 0.25) {
+      this.drawBadge(x, this.badge, R, cx, cy);
+    }
+  }
+
+  bodyPath(rx: number, ry: number, R: number): Path2D {
     const n = 72;
     const expN = 2.0 / 2.7;
     const tw = R * 1.0;

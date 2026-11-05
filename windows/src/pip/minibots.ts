@@ -39,6 +39,7 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
 
   const engine = new BotEngine();
   engine.isMini = true;
+  engine.shape = "bird";
   engine.bodyColor = hexToRGB(task.color);
   engine.setState(task.state, true);
   if (task.emote) engine.setPermanentEmote(task.emote);
