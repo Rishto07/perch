@@ -736,167 +736,171 @@ export class BotEngine {
   }
 
   /**
-   * A small alive bird: round body, two wings that beat, a fanned tail, a
-   * pointed beak and a single bright eye. Drawn in the same coordinate frame
-   * as Pip (origin at body centre, R = half-width). Supports morph (mailbox),
-   * hands (greeting wave), badge, and all eye shapes.
+   * Cute front-facing bird matching the reference design:
+   * round fluffy body, two large black eyes with highlights, small triangular beak,
+   * tiny feet, and a little crest. Supports all states and animations.
    */
   private drawBird(x: CanvasRenderingContext2D, R: number, cx: number, cy: number) {
-    const rx = R * 1.0;
-    const ry = R * 0.92;
-    const body = this.bodyPath(rx, ry, R);
-
-    // Colour: solid bodyColor for integration pills, else the state tint.
+    // Body radius (slightly taller than wide for cute proportion)
+    const bodyR = R * 0.85;
     const fill: RGB = this.bodyColor ?? mix3(this.col, [1, 1, 1], 0.18);
+    const wingBeat = Math.sin(this.wingPhase * Math.PI); // 0-1 oscillation
 
     x.save();
     x.translate(cx, cy);
     if (this.tilt !== 0) x.rotate(this.tilt);
-    x.scale(this.sx, this.sy);
 
-    // ── Tail (behind the body, fans open when the bird tilts) ──
-    x.save();
-    x.rotate(Math.PI);
-    x.translate(-rx * 0.78, ry * 0.06);
-    x.scale(1, 0.55);
+    // ── Feet (tiny ovals at bottom) ──
+    const footY = bodyR * 0.85;
+    x.fillStyle = "#2C2C2C";
+    for (const sd of [-1, 1]) {
+      const footX = sd * bodyR * 0.25;
+      x.beginPath();
+      x.ellipse(footX, footY, bodyR * 0.1, bodyR * 0.12, 0, 0, Math.PI * 2);
+      x.fill();
+    }
+
+    // ── Body (round fluffy shape) ──
+    const bodyGrad = x.createRadialGradient(-bodyR * 0.2, -bodyR * 0.3, 0, 0, 0, bodyR * 1.1);
+    bodyGrad.addColorStop(0, rgba(fill, 1));
+    bodyGrad.addColorStop(1, rgba(fill, 0.95));
+    x.fillStyle = bodyGrad;
     x.beginPath();
-    const tw = R * 0.85 * (0.4 + this.tailOpen * 0.6);
-    const th = R * 0.8 * (0.5 + this.tailOpen * 0.5);
-    x.moveTo(0, 0);
-    x.quadraticCurveTo(-tw * 0.5, -th, -tw, 0);
-    x.quadraticCurveTo(-tw * 0.5, th, 0, 0);
-    x.closePath();
-    x.fillStyle = rgba(fill, 1);
+    x.ellipse(0, 0, bodyR, bodyR * 1.15, 0, 0, Math.PI * 2);
     x.fill();
-    x.strokeStyle = "rgba(0,0,0,0.12)";
-    x.lineWidth = 1;
-    x.stroke();
-    x.restore();
 
-    // ── Wings (one each side, beat from folded → spread) ──
-    const wing = this.wingPhase; // 0 folded, 1 spread
+    // Soft shadow/belly
+    const bellyGrad = x.createRadialGradient(0, bodyR * 0.3, 0, 0, bodyR * 0.3, bodyR * 0.7);
+    bellyGrad.addColorStop(0, "rgba(255,255,255,0.3)");
+    bellyGrad.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = bellyGrad;
+    x.beginPath();
+    x.ellipse(0, bodyR * 0.3, bodyR * 0.6, bodyR * 0.5, 0, 0, Math.PI * 2);
+    x.fill();
+
+    // ── Crest (tiny tuft on top) ──
+    x.beginPath();
+    x.moveTo(-bodyR * 0.15, -bodyR * 1.0);
+    x.quadraticCurveTo(0, -bodyR * 1.4, bodyR * 0.2, -bodyR * 1.05);
+    x.quadraticCurveTo(0, -bodyR * 1.2, -bodyR * 0.15, -bodyR * 1.0);
+    x.closePath();
+    x.fillStyle = rgba(fill, 0.9);
+    x.fill();
+
+    // ── Eyes (large, cute, front-facing) ──
+    const eyeSpacing = bodyR * 0.32;
+    const eyeY = -bodyR * 0.15;
+    const eyeR = bodyR * 0.22;
+
+    for (const sd of [-1, 1]) {
+      const eyeX = sd * eyeSpacing;
+
+      // Eye white
+      x.fillStyle = "#FFFFFF";
+      x.beginPath();
+      x.ellipse(eyeX, eyeY, eyeR, eyeR * 1.1, 0, 0, Math.PI * 2);
+      x.fill();
+
+      // Determine eye shape based on state
+      let pupilOffsetX = 0;
+      let pupilOffsetY = 0;
+      let isHappyEye = false;
+      let isClosedEye = false;
+
+      if (this.morph > 0.5) {
+        if (this.isChewing) isHappyEye = true;
+      } else {
+        // Use state-based eye shapes
+        const shape = this.eyeOverride ?? this.cfg.eye;
+        switch (shape) {
+          case "happy":
+          case "wide":
+            isHappyEye = true;
+            break;
+          case "closed":
+            isClosedEye = true;
+            break;
+          case "dot":
+            // Dot eyes are just smaller pupils
+            break;
+          default:
+            // Track mouse for normal eyes
+            pupilOffsetX = this.yaw * eyeR * 0.4;
+            pupilOffsetY = this.pitch * eyeR * 0.3;
+        }
+      }
+
+      if (isHappyEye) {
+        // Happy eyes: curved lines like ^^
+        x.strokeStyle = "#1A1A1A";
+        x.lineWidth = eyeR * 0.25;
+        x.lineCap = "round";
+        x.beginPath();
+        x.arc(eyeX, eyeY + eyeR * 0.2, eyeR * 0.7, Math.PI * 1.2, Math.PI * 1.8);
+        x.stroke();
+      } else if (isClosedEye) {
+        // Closed eyes: simple lines
+        x.strokeStyle = "#1A1A1A";
+        x.lineWidth = eyeR * 0.2;
+        x.lineCap = "round";
+        x.beginPath();
+        x.moveTo(eyeX - eyeR * 0.6, eyeY);
+        x.lineTo(eyeX + eyeR * 0.6, eyeY);
+        x.stroke();
+      } else {
+        // Normal/dot/wide eyes: black pupil with highlight
+        x.fillStyle = "#1A1A1A";
+        x.beginPath();
+        x.arc(eyeX + pupilOffsetX, eyeY + pupilOffsetY, eyeR * 0.55, 0, Math.PI * 2);
+        x.fill();
+
+        // Highlight
+        x.fillStyle = "#FFFFFF";
+        x.beginPath();
+        x.arc(eyeX + pupilOffsetX - eyeR * 0.17, eyeY + pupilOffsetY - eyeR * 0.17, eyeR * 0.2, 0, Math.PI * 2);
+        x.fill();
+
+        // Secondary highlight
+        x.beginPath();
+        x.arc(eyeX + pupilOffsetX + eyeR * 0.1, eyeY + pupilOffsetY + eyeR * 0.1, eyeR * 0.1, 0, Math.PI * 2);
+        x.fill();
+      }
+    }
+
+    // ── Beak (small triangle, pointed) ──
+    const beakY = eyeY + eyeR * 1.5;
+    const beakW = bodyR * 0.18;
+    const beakH = bodyR * 0.22;
+    const beakOpen = this.morph * 0.4; // Subtle open during swallow
+
+    x.beginPath();
+    x.moveTo(0, beakY);
+    x.lineTo(-beakW, beakY - beakH * (1 + beakOpen));
+    x.lineTo(beakW, beakY - beakH * (1 + beakOpen));
+    x.closePath();
+    x.fillStyle = "#2C2C2C";
+    x.fill();
+
+    // ── Wings (on sides, flap gently) ──
     for (const sd of [-1, 1]) {
       x.save();
-      x.translate(sd * rx * 0.62, -ry * 0.18);
-      x.rotate(sd * (0.55 + wing * 0.55));
-      x.scale(1, 0.6);
+      const wingX = sd * bodyR * 0.85;
+      const wingY = bodyR * 0.1;
+      x.translate(wingX, wingY);
+      // Wing flap animation
+      const wingAngle = sd * (0.15 + wingBeat * 0.25);
+      x.rotate(wingAngle);
+
       x.beginPath();
-      // Feathered wing: a curved fan of 4 arcs.
-      const wW = R * 0.9 * (0.35 + wing * 0.65);
-      const wH = R * 0.75 * (0.4 + wing * 0.6);
-      x.moveTo(0, 0);
-      for (let i = 0; i <= 3; i++) {
-        const a = -Math.PI / 2 + (i / 3) * Math.PI * 0.8;
-        const rr = wW * (0.55 + 0.45 * Math.abs(Math.cos(a)));
-        x.quadraticCurveTo(
-          Math.cos(a) * rr * 0.5, Math.sin(a) * wH * 0.5,
-          Math.cos(a) * rr, Math.sin(a) * wH,
-        );
-      }
-      x.closePath();
-      x.fillStyle = rgba(fill, 1);
+      x.ellipse(0, 0, bodyR * 0.25, bodyR * 0.55, sd * 0.2, 0, Math.PI * 2);
+      x.fillStyle = rgba(fill, 0.85);
       x.fill();
-      x.strokeStyle = "rgba(0,0,0,0.12)";
-      x.lineWidth = 1;
-      x.stroke();
       x.restore();
     }
 
-    // ── Body ──
-    x.fillStyle = rgba(fill, 1);
-    x.fill(body);
-    // Soft belly highlight
-    const hl = x.createRadialGradient(-rx * 0.28, -ry * 0.4, 0, -rx * 0.28, -ry * 0.4, R * 0.5);
-    hl.addColorStop(0, "rgba(255,255,255,0.45)");
-    hl.addColorStop(1, "rgba(255,255,255,0)");
-    x.fillStyle = hl;
-    x.fill(body);
-
-    // ── Beak (pointed, right of centre) — morphs open during swallow ──
-    const beakOpen = this.morph * 0.6; // 0 = closed, 1 = fully open
-    x.save();
-    x.translate(rx * 0.8, ry * 0.04);
-    x.rotate(this.yaw * 0.6);
-    x.beginPath();
-    x.moveTo(0, 0);
-    if (beakOpen > 0.01) {
-      // Open beak: upper and lower mandibles separate
-      x.lineTo(R * 0.75, -R * 0.16 * (1 + beakOpen * 0.8));
-      x.lineTo(R * 0.75, R * 0.16 * (1 + beakOpen * 0.8));
-    } else {
-      // Closed beak
-      x.lineTo(R * 0.75, -R * 0.16);
-      x.lineTo(R * 0.75, R * 0.16);
-    }
-    x.closePath();
-    x.fillStyle = "#F7B32B";
-    x.fill();
-    x.strokeStyle = "rgba(0,0,0,0.18)";
-    x.lineWidth = 1;
-    x.stroke();
-    // Tongue when morphing (mailbox)
-    if (beakOpen > 0.15) {
-      x.fillStyle = "rgba(255,120,150,0.9)";
-      x.beginPath();
-      x.ellipse(R * 0.5, 0, R * 0.15, R * 0.08 * beakOpen, 0, 0, Math.PI * 2);
-      x.fill();
-    }
     x.restore();
 
-    // ── Hands / Wings wave during greeting ──
-    if (this.hands > 0.01) {
-      const waveAmount = this.hands;
-      for (const sd of [-1, 1]) {
-        x.save();
-        // Wings raised up and forward like waving hands
-        const wingBaseY = -ry * 0.25;
-        const wingBaseX = sd * rx * 0.55;
-        x.translate(wingBaseX, wingBaseY);
-        // Wave rotation
-        x.rotate(sd * (0.3 + waveAmount * 0.8) + Math.sin(performance.now() / 100) * waveAmount * 0.15);
-        x.scale(1, 0.5);
-        x.beginPath();
-        const wW = R * 0.85 * (0.4 + waveAmount * 0.6);
-        const wH = R * 0.7 * (0.5 + waveAmount * 0.5);
-        x.moveTo(0, 0);
-        for (let i = 0; i <= 3; i++) {
-          const a = -Math.PI / 2 + (i / 3) * Math.PI * 0.8;
-          const rr = wW * (0.55 + 0.45 * Math.abs(Math.cos(a)));
-          x.quadraticCurveTo(
-            Math.cos(a) * rr * 0.5, Math.sin(a) * wH * 0.5,
-            Math.cos(a) * rr, Math.sin(a) * wH,
-          );
-        }
-        x.closePath();
-        x.fillStyle = rgba(fill, 1);
-        x.fill();
-        x.strokeStyle = "rgba(0,0,0,0.12)";
-        x.lineWidth = 1;
-        x.stroke();
-        x.restore();
-      }
-    }
-
-    // ── Eye (supports all eye shapes: pill, wide, dot, line, flat, happy, closed, spiral, heart, star, tired, wink, cup) ──
-    x.save();
-    x.clip(body);
-    let shape: EyeShape = this.eyeOverride ?? this.cfg.eye;
-    // During morph, eyes change shape like the bot
-    if (this.morph > 0.5) {
-      if (this.isChewing) shape = "happy";
-      else if (this.slotHTarget > 0.05 || this.slotH > 0.1) shape = "cup";
-    }
-    const ink = "#1A1412";
-    const eyeR = R * 0.2 * this.es;
-    // Bird has one eye on the right side (facing right)
-    x.fillStyle = ink;
-    x.strokeStyle = ink;
-    this.drawEyeShape(x, shape, eyeR * 2.2, eyeR * 2.2, 1, ink);
-    x.restore();
-
-    x.restore();
-
-    // ── Badge (state indicator) — in world coordinates ──
+    // ── Badge (state indicator) ──
     if (this.badge && this.badgeS > 0.01 && this.morph < 0.25) {
       this.drawBadge(x, this.badge, R, cx, cy);
     }
