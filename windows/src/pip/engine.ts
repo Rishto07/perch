@@ -175,13 +175,19 @@ export class BotEngine {
    * preens and chirps. Same engine, same states; only the draw differs.
    */
   shape: "bot" | "bird" = "bot";
-  /** Wing beat phase, in radians. 0 = folded, π = fully spread. */
+  /** Wing beat phase — 0 = folded, 1 = spread. Continuous animation for birds. */
   wingPhase = 0;
   wingVel = 0;
   /** Tail fanned open, 0…1. */
   tailOpen = 0;
-  /** Perch bob amplitude for the bird. */
-  birdTilt = 0;
+  /** Perch bob — subtle vertical oscillation. */
+  birdBob = 0;
+  /** Head tilt wobble — reactive to state changes. */
+  birdTiltWobble = 0;
+  /** Idle head turn timer for natural behavior. */
+  idleHeadTurn = 0;
+  /** Extra bob amplitude for breathing. */
+  breatheAmt = 0;
 
   // Animated state (BotEngine `s`)
   yaw = 0; pitch = 0; roll = 0; tilt = 0; open = 1;
@@ -575,21 +581,58 @@ export class BotEngine {
     // ── Bird: wings beat when alive, fold when resting; tail fans on tilt ──
     if (this.shape === "bird") {
       const alive = this.state !== "sleeping" && this.state !== "dizzy";
-      const target = alive ? 1 : 0;
-      this.wingVel += (target - this.wingPhase) * 0.18;
-      this.wingVel *= 0.82;
-      this.wingPhase += this.wingVel;
-      this.wingPhase = clamp(this.wingPhase, 0, 1);
-      this.tailOpen += (this.birdTilt * 0.5 + 0.5 - this.tailOpen) * 0.12;
-      this.birdTilt *= 0.9;
+      const t = n - this.t0;
+
+      // Continuous wing beat — always some flutter for life
+      if (alive) {
+        const beatFreq = this.state === "working" ? 4.5 :
+                         this.state === "thinking" ? 3.8 :
+                         this.state === "searching" ? 5 : 4;
+        this.wingPhase = 0.5 + 0.4 * Math.sin(t * beatFreq);
+        this.wingPhase = clamp(this.wingPhase, 0.1, 0.9);
+      } else {
+        // Fold wings when sleeping/dizzy
+        this.wingPhase += (0 - this.wingPhase) * 0.08;
+      }
+
+      // Tail fans with tilt and excitement
+      const tailTarget = alive ? 0.3 + Math.abs(this.tilt) * 0.5 : 0;
+      this.tailOpen += (tailTarget - this.tailOpen) * 0.1;
+
+      // Bobbing — gentle vertical oscillation
+      this.birdBob = alive ? Math.sin(t * 2.5) * 0.025 : Math.sin(t * 0.8) * 0.015;
+
+      // Breathing — subtle scale oscillation
+      this.breatheAmt = Math.sin(t * 1.8) * 0.02;
+
+      // Idle head turns — look around randomly
+      if (alive && !this.cfg.look && !this.cfg.scans) {
+        this.idleHeadTurn -= dt;
+        if (this.idleHeadTurn <= 0) {
+          this.idleHeadTurn = 2 + Math.random() * 4;
+          this.birdTiltWobble = (Math.random() - 0.5) * 0.12;
+        }
+        this.birdTiltWobble *= 0.95;
+      }
     }
 
     const kLook = 1 - Math.pow(0.0025, dt);
     if (!this.locks.has("yaw")) this.yaw += (this.tgYaw - this.yaw) * kLook;
     if (!this.locks.has("pitch")) this.pitch += (this.tgPitch - this.pitch) * kLook;
-    if (!this.locks.has("tilt")) this.tilt += (this.tgTilt - this.tilt) * kGen;
-    if (!this.locks.has("sy")) this.sy += (this.tgSy - this.sy) * kGen;
-    if (!this.locks.has("sx")) this.sx += (this.tgSx - this.sx) * kGen;
+    if (!this.locks.has("tilt")) {
+      // For birds, blend state tilt with idle wobble
+      const birdTiltAdd = this.shape === "bird" ? this.birdTiltWobble : 0;
+      this.tilt += (this.tgTilt + birdTiltAdd - this.tilt) * kGen;
+    }
+    if (!this.locks.has("sy")) {
+      // Add breathing to bird's vertical scale
+      const breatheAdd = this.shape === "bird" ? this.breatheAmt : 0;
+      this.sy += (this.tgSy + breatheAdd - this.sy) * kGen;
+    }
+    if (!this.locks.has("sx")) {
+      const breatheAdd = this.shape === "bird" ? -this.breatheAmt * 0.5 : 0;
+      this.sx += (this.tgSx + breatheAdd - this.sx) * kGen;
+    }
     if (!this.locks.has("es")) this.es += (this.tgEs - this.es) * kGen;
 
     this.col = mix3(this.col, this.colT, 1 - Math.pow(0.002, dt));
@@ -747,7 +790,9 @@ export class BotEngine {
     const wingBeat = Math.sin(this.wingPhase * Math.PI); // 0-1 oscillation
 
     x.save();
-    x.translate(cx, cy);
+    // Apply bird bob (vertical oscillation)
+    const bobY = this.birdBob * R;
+    x.translate(cx, cy + bobY);
     if (this.tilt !== 0) x.rotate(this.tilt);
 
     // ── Feet (tiny ovals at bottom) ──
