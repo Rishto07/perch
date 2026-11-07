@@ -39,4 +39,7 @@ struct IslandRestingLayout {
     var botCenterY: CGFloat { height / 2 }
     var miniGridScale: CGFloat { min(1, max(0, height - 4) / 28) }
     var miniGridCenterX: CGFloat { width - 40 }
+    // Greeting tokens reuse the mini grid position/scale.
+    var railScale: CGFloat { miniGridScale }
+    var railCenterX: CGFloat { miniGridCenterX }
 }
