@@ -108,13 +108,9 @@ struct IslandContainer: View {
 
             Group {
                 if state.mode == .compact {
-                    CompactAgentRail(state: state)
-                        .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).railScale)
-                        .position(x: islandWidth - 34, y: islandHeight / 2)
-                        .transition(.opacity)
                     CompactMiniGrid(state: state)
                         .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).miniGridScale)
-                        .position(x: islandWidth - 34 - 34, y: islandHeight / 2)
+                        .position(x: islandWidth - 40, y: islandHeight / 2)
                         .transition(.opacity)
                 }
             }
@@ -547,26 +543,7 @@ struct TabButton: View {
     }
 }
 
-// MARK: - Compact agent rail (birds to the right of the notch)
-
-struct CompactAgentRail: View {
-    @ObservedObject var state: AppState
-
-    private var others: [AgentTask] {
-        Array(state.tasks.filter { $0.id != state.focusId }.prefix(4))
-    }
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(others) { task in
-                PerchedBirdMark(color: Color(hex: task.color), size: 11, state: task.state)
-            }
-        }
-        .frame(width: 46, height: 12)
-    }
-}
-
-// MARK: - Compact mini pip grid (2×2 to the left of the rail)
+// MARK: - Compact mini pip grid (2×2 to the right of the notch)
 
 struct CompactMiniGrid: View {
     @ObservedObject var state: AppState

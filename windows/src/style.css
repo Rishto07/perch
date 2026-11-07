@@ -152,32 +152,6 @@ body {
   width: 0;
 }
 
-/* Compact agent rail, to the right of the notch. */
-#compact-rail {
-  position: absolute;
-  height: 12px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  pointer-events: none;
-  transition: opacity 0.25s ease-in-out;
-}
-
-#compact-rail .token {
-  --token-bg: #000;
-}
-
-#compact-rail .bird {
-  width: 11px;
-  height: 11px;
-}
-
-#compact-rail .token-badge {
-  top: -4px;
-  margin-right: -12px;
-  transform: scale(0.65);
-}
-
 /* ── Content shell (expanded) ───────────────────────────────────────────── */
 
 #content {
@@ -496,18 +470,7 @@ body {
   }
 }
 
-/* Mini-bot pills sit below the rail in the overview right card. */
-.right-stack {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 6px 6px 8px;
-  gap: 4px;
-}
-
-/* Compact 2×2 mini grid, to the left of the rail. */
+/* Compact 2×2 mini grid, to the right of the notch. */
 #mini-grid {
   position: absolute;
   width: 29px;
@@ -534,42 +497,6 @@ body {
   top: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
-}
-
-/* ── Agent rail (perched birds) ────────────────────────────────────────── */
-
-.rail {
-  position: relative;
-  z-index: 1;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  gap: 2px;
-  padding: 0 6px 2px;
-}
-
-.rail::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: calc(50% + 4px);
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.11) 16%,
-    rgba(255, 255, 255, 0.11) 84%,
-    transparent
-  );
-}
-
-.rail-empty {
-  font: 500 10px var(--font);
-  color: var(--dim-5);
 }
 
 /* ── Agent pills (mini birds) ───────────────────────────────────────────── */
@@ -644,170 +571,6 @@ body {
 }
 
 .pill-badge svg {
-  width: 6px;
-  height: 6px;
-}
-
-.token {
-  --token-bg: var(--card);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  color: var(--dim-3);
-  cursor: default;
-  transition: transform 0.22s cubic-bezier(0.3, 1.3, 0.4, 1), filter 0.18s;
-}
-
-.token .bird {
-  display: block;
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
-.token .body {
-  fill: currentColor;
-}
-
-.token .wing {
-  fill: rgba(0, 0, 0, 0.22);
-}
-
-.token .legs {
-  fill: none;
-  stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-}
-
-.token .eye {
-  fill: #10131a;
-}
-
-/* The bird's skin: blinking (transform-origin at the eye), a lean toward
-   the mouse, and a springy hover hop.  All other motion stays on the bird
-   itself; the GSAP-like feel comes from CSS transitions not keyframes. */
-
-.token .eye {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: token-blink 3.2s ease-in-out infinite;
-}
-
-@keyframes token-blink {
-  0%, 92%, 100% { transform: scaleY(1) scaleX(1); }
-  94% { transform: scaleY(0.12) scaleX(1); }
-  96% { transform: scaleY(1) scaleX(1); }
-}
-
-.token .bird {
-  transform-origin: 50% 85%;
-}
-
-.token hovering {
-  /* a tiny lean when the mouse is nearby; island.ts sets --leanX */
-  transform: translateX(var(--leanX, 0px)) rotate(var(--leanR, 0deg));
-}
-
-/* Spring feel on hover: a quick lift, then settle. */
-.token:hover {
-  transform: translateY(-3px);
-  filter: brightness(1.15);
-}
-
-/* Smooth idle breathing stays on the body, not the eye. */
-@keyframes token-breathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-0.4px) scale(1.035); }
-}
-@keyframes token-work {
-  0%, 100% { transform: rotate(-2.2deg) translateY(0); }
-  50% { transform: rotate(2.2deg) translateY(-1px); }
-}
-@keyframes token-hop {
-  0%, 64%, 100% { transform: translateY(0); }
-  74% { transform: translateY(-3px); }
-  84% { transform: translateY(0); }
-}
-@keyframes token-flick {
-  0% { transform: rotate(0); }
-  7% { transform: rotate(-14deg); }
-  16% { transform: rotate(6deg); }
-  25%, 100% { transform: rotate(0); }
-}
-@keyframes token-ruffle {
-  0%, 100% { transform: rotate(0); }
-  9% { transform: rotate(9deg); }
-  18% { transform: rotate(-7deg); }
-  27% { transform: rotate(4deg); }
-  36% { transform: rotate(0); }
-}
-
-.token[data-state="idle"] .bird {
-  animation: token-breathe 3.8s ease-in-out infinite;
-}
-
-.token[data-state="working"] .bird,
-.token[data-state="thinking"] .bird,
-.token[data-state="searching"] .bird {
-  animation: token-work 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 3px currentColor);
-}
-
-.token[data-state="approval"] .bird,
-.token[data-state="question"] .bird {
-  animation: token-hop 1.8s ease-in-out infinite;
-}
-
-.token[data-state="finished"] .bird {
-  animation: token-flick 2.6s ease-out infinite;
-  transform-origin: 50% 85%;
-}
-
-.token[data-state="error"] .bird {
-  animation: token-ruffle 2.2s ease-in-out infinite;
-  transform-origin: 50% 85%;
-  filter: drop-shadow(0 0 3px #f4505e);
-}
-
-.token[data-state="ratelimit"] .bird,
-.token[data-state="sleeping"] .bird,
-.token[data-state="dizzy"] .bird {
-  animation: token-breathe 5s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .token .bird,
-  .token .eye {
-    animation: none !important;
-  }
-}
-
-.token-badge {
-  position: absolute;
-  top: -5px;
-  right: 50%;
-  margin-right: -17px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #0b0c0e;
-  display: grid;
-  place-items: center;
-}
-
-.token-badge i {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #000;
-}
-
-.token-badge svg {
   width: 6px;
   height: 6px;
 }
@@ -1596,55 +1359,3 @@ input[type="range"]::-webkit-slider-thumb {
   padding-top: 8px;
 }
 
-/* ── Agent rail bird animations ──────────────────────────────────── */
-@keyframes token-breathe {
-  0%, 100% { transform: scale(1) rotate(0); }
-  50% { transform: scale(1.03) rotate(2deg); }
-}
-@keyframes token-sweep {
-  0%, 100% { transform: rotate(0); }
-  50% { transform: rotate(12deg); }
-}
-@keyframes token-hop {
-  0%, 64%, 100% { transform: translateY(0); }
-  74% { transform: translateY(-3px); }
-  84% { transform: translateY(0); }
-}
-@keyframes token-flick {
-  0% { transform: rotate(0); }
-  7% { transform: rotate(-14deg); }
-  16% { transform: rotate(6deg); }
-  25%, 100% { transform: rotate(0); }
-}
-@keyframes token-ruffle {
-  0%, 100% { transform: rotate(0); }
-  9% { transform: rotate(9deg); }
-  18% { transform: rotate(-7deg); }
-  27% { transform: rotate(4deg); }
-  36% { transform: rotate(0); }
-}
-.token[data-state="idle"] .bird {
-  animation: token-breathe 3.8s ease-in-out infinite;
-}
-.token[data-state="working"] .bird,
-.token[data-state="thinking"] .bird,
-.token[data-state="searching"] .bird {
-  animation: token-sweep 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 3px currentColor);
-}
-.token[data-state="approval"] .bird,
-.token[data-state="question"] .bird {
-  animation: token-hop 1.8s ease-in-out infinite;
-}
-.token[data-state="finished"] .bird {
-  animation: token-flick 2.6s ease-out infinite;
-  transform-origin: 50% 85%;
-}
-.token[data-state="error"] .bird {
-  animation: token-ruffle 2.2s ease-in-out infinite;
-  transform-origin: 50% 85%;
-  filter: drop-shadow(0 0 3px #f4505e);
-}
-.token:hover .bird {
-  animation-play-state: paused;
-}

@@ -7,7 +7,6 @@ import { ICONS } from "./icons";
 import { Ticker } from "./ticker";
 import { State, type AgentTask } from "../core/state";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
-import { createToken, syncToken } from "../pip/rail";
 import { createMiniBot, pruneMiniBots } from "../pip/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
@@ -128,18 +127,14 @@ function buildOverview(actions: ViewActions): ViewHost {
     svg(ICONS.arrowUpRight, 8),
   );
   const left = card(null, leftBody, jump);
-  const rail = h("div", { class: "rail" });
-  // Mini-bot pills sit below the rail so both bird systems are visible.
   const pills = h("div", { class: "pills" });
-  const rightBody = h("div", { class: "right-stack" }, rail, pills);
-  const right = card(null, rightBody);
+  const right = card(null, pills);
 
   const el = h("div", { class: "view overview" },
     h("div", { class: "left" }, left),
     h("div", { class: "right" }, right),
   );
 
-  let railKey = "";
   let pillIds = "";
   let detailOpen = false;
   let lastFocus: string | null = null;
@@ -225,28 +220,6 @@ function buildOverview(actions: ViewActions): ViewHost {
       jump.style.display = detailOpen ? "none" : "";
 
       const others = State.otherTasks.slice(0, 4);
-      const key = others.map((t) => t.id).join("|");
-      if (key !== railKey) {
-        railKey = key;
-        clear(rail);
-        if (others.length === 0) {
-          rail.append(h("span", { class: "rail-empty", text: "No other agents" }));
-        } else {
-          for (const t of others) {
-            rail.append(createToken(t, {
-              size: 24,
-              label: tokenLabel(t),
-              onSelect: () => actions.setFocus(t.id),
-            }));
-          }
-        }
-      }
-      // State, colour and badge change without a rebuild, so the bird can
-      // animate through a transition instead of being replaced.
-      for (const [i, t] of others.entries()) {
-        const token = rail.children[i] as HTMLElement | undefined;
-        if (token) syncToken(token, t);
-      }
 
       const pillKey = others.map((t) => `${t.id}:${t.pillBadge ?? ""}`).join("|");
       if (pillKey !== pillIds) {
@@ -318,18 +291,6 @@ function agentToolLabel(source: string): string {
     case "generic": return "Agent";
     case "claudeCode": return "Claude Code";
     default: return "n8n";
-  }
-}
-
-/** Agent tokens keep their agent label; the project name lives in the card. */
-function tokenLabel(task: AgentTask): string {
-  switch (task.id) {
-    case "integration_claude": return "VS Code";
-    case "integration_codex": return "Codex";
-    case "integration_opencode": return "OpenCode";
-    case "integration_zcode": return "Zcode";
-    case "integration_generic": return "Agent";
-    default: return task.name;
   }
 }
 
