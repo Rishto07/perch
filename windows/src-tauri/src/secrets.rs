@@ -8,6 +8,12 @@ const SERVICE: &str = "com.perch.perch";
 /// Every key Perch may store. Anything outside this list is refused.
 pub const KNOWN_KEYS: &[&str] = &[
     "anthropic-api-key",
+    "openai-api-key",
+    "gemini-api-key",
+    "mistral-api-key",
+    "groq-api-key",
+    "openrouter-api-key",
+    "ollama-url",
     "n8n-url",
     "n8n-api-key",
     "vercel-token",

@@ -4,7 +4,8 @@ import AppKit
 
 struct SettingsView: View {
     @ObservedObject private var state = AppState.shared
-    @State private var apiKey: String = KeychainStore.shared.get("anthropic-api-key") ?? ""
+    @State private var chatKey: String = ""
+    @State private var chatEndpoint: String = ""
     @State private var launchAtStartup: Bool = (SMAppService.mainApp.status == .enabled)
     @State private var statusMessage: String = ""
     @State private var showDiff: Bool = false
@@ -38,9 +39,27 @@ struct SettingsView: View {
     @State private var n8nWorkflows: [String] = []
     @State private var loadingN8n: Bool = false
 
-    // Bindings in minutes for the absence field
-    private var absenceMinutes: Binding<Double> {
+    // Chat provider/model helpers
+    private var activeProvider: LLMProvider {
+        LLMProvider.lookup(state.llmProvider)
+    }
+
+    /// Switching providers also snaps the model to that provider's default —
+    /// a Claude model id sent to OpenAI would just be rejected.
+    private var providerBinding: Binding<String> {
         Binding(
+            get: { state.llmProvider },
+            set: { newValue in
+                state.llmProvider = newValue
+                state.chatModel = LLMProvider.lookup(newValue).defaultModel
+                chatKey = ""
+                chatEndpoint = ""
+            }
+        )
+    }
+
+    // Bindings in minutes for the absence field
+    private var absenceMinutes: Binding<Double> {        Binding(
             get: { state.absenceInterval / 60 },
             set: { state.absenceInterval = max(1, $0) * 60 }
         )
@@ -50,18 +69,67 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
 
-                // MARK: API
-                GroupBox("Anthropic API") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SecureField("API key (sk-ant-…)", text: $apiKey)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Save") {
-                            KeychainStore.shared.set("anthropic-api-key", value: apiKey)
-                            statusMessage = "✓ Key saved."
+                // MARK: Chat
+                GroupBox("Chat") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Picker("Provider", selection: providerBinding) {
+                            ForEach(LLMProvider.all) { provider in
+                                Text(provider.name).tag(provider.id)
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
+                        Picker("Model", selection: $state.chatModel) {
+                            ForEach(activeProvider.models) { model in
+                                Text(model.label).tag(model.id)
+                            }
+                        }
+                        if let credentialKey = activeProvider.credentialKey {
+                            HStack(spacing: 8) {
+                                SecureField(activeProvider.keyHint, text: $chatKey)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Save") {
+                                    KeychainStore.shared.set(credentialKey, value: chatKey)
+                                    chatKey = ""
+                                    statusMessage = "✓ \(activeProvider.name) key saved."
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button("Remove") {
+                                    KeychainStore.shared.remove(credentialKey)
+                                    statusMessage = "\(activeProvider.name) key removed."
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            Text(KeychainStore.shared.get(credentialKey)?.isEmpty == false
+                                 ? "Key saved in the Keychain."
+                                 : "No key yet — this provider needs one.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        } else if let urlKey = activeProvider.urlKey {
+                            HStack(spacing: 8) {
+                                TextField("http://localhost:11434", text: $chatEndpoint)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Save endpoint") {
+                                    KeychainStore.shared.set(urlKey, value: chatEndpoint)
+                                    chatEndpoint = ""
+                                    statusMessage = "✓ Endpoint saved."
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            Text("Ollama needs no API key. Start it with `ollama serve` and pull the model you picked.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                        Text(activeProvider.webSearch
+                             ? "Claude answers with live web search."
+                             : "\(activeProvider.name) answers without web search.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
                     }
                     .padding(6)
+                }
+                .onAppear {
+                    if !activeProvider.offers(state.chatModel) {
+                        state.chatModel = activeProvider.defaultModel
+                    }
                 }
 
                 // MARK: Hooks

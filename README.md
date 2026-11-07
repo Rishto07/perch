@@ -91,7 +91,7 @@ Click the Perch icon in the menu bar (macOS) or in the system tray (Windows) →
 |---|---|---|
 | **Claude Code hooks** | live sessions and approvals | **Install hooks** — Perch backs up `~/.claude/settings.json`, merges its hooks and shows you the diff before writing anything |
 | **Other agents** | Codex, OpenCode, Zcode, … | Settings → Other coding agents → Install (or Connect all); scripts in [`agents/`](agents/) |
-| **Anthropic API key** | chat and questions about files | Keychain / Windows Credential Manager |
+| **Chat provider key** | chat and questions about files — Claude, OpenAI, Gemini, Mistral, Groq, OpenRouter or a local Ollama | Keychain / Windows Credential Manager |
 | Stripe, n8n, GitHub, Vercel, Resend, Notion, Cal.com | the integration pills | Keychain / Windows Credential Manager, all optional |
 
 If Perch isn't running, the hook exits immediately: **your agent is never blocked.**

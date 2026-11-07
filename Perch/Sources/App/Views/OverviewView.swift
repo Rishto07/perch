@@ -76,9 +76,9 @@ struct OverviewView: View {
             }
             .frame(width: 322)
 
-            // Right card: agent pills
+            // Right card: the agent rail
             CardBackground(wash: nil) {
-                AgentPillsView(state: state)
+                AgentRailView(state: state)
             }
         }
         .onChange(of: state.focusId) { _, _ in showingN8nDetail = false }

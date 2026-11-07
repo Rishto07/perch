@@ -108,9 +108,9 @@ struct IslandContainer: View {
 
             Group {
                 if state.mode == .compact {
-                    CompactMiniGrid(state: state)
-                        .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).miniGridScale)
-                        .position(x: islandWidth - 40, y: islandHeight / 2)
+                    CompactAgentRail(state: state)
+                        .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).railScale)
+                        .position(x: islandWidth - 34, y: islandHeight / 2)
                         .transition(.opacity)
                 }
             }
@@ -543,9 +543,9 @@ struct TabButton: View {
     }
 }
 
-// MARK: - Compact mini pip grid (2×2 to the right of the notch)
+// MARK: - Compact agent rail (birds to the right of the notch)
 
-struct CompactMiniGrid: View {
+struct CompactAgentRail: View {
     @ObservedObject var state: AppState
 
     private var others: [AgentTask] {
@@ -553,15 +553,12 @@ struct CompactMiniGrid: View {
     }
 
     var body: some View {
-        let cols = [GridItem(.fixed(12), spacing: 4), GridItem(.fixed(12), spacing: 4)]
-        LazyVGrid(columns: cols, spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(others) { task in
-                MiniBotCanvasView(task: task)
-                    .frame(width: 12 / 0.6, height: 12 / 0.6)
-                    .frame(width: 12, height: 12, alignment: .center)
+                PerchedBirdMark(color: Color(hex: task.color), size: 11, state: task.state)
             }
         }
-        .frame(width: 28, height: 28)
+        .frame(width: 46, height: 12)
     }
 }
 

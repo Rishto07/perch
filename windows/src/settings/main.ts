@@ -3,7 +3,7 @@
 // integrations land here too in a later stage.
 
 import "./settings.css";
-import { Bridge, onEvent, type AgentStatus, type HookStatus } from "../core/bridge";
+import { Bridge, onEvent, type AgentStatus, type HookStatus, type ProviderInfo } from "../core/bridge";
 import { DEFAULT_SETTINGS, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
 
@@ -307,87 +307,159 @@ function agentsSection(initial: AgentStatus[]): HTMLElement {
   return section;
 }
 
-// ── Claude API section ────────────────────────────────────────────────────────
+// ── Chat section ──────────────────────────────────────────────────────────────
 
-const MODELS: [string, string][] = [
-  ["claude-opus-5", "Claude Opus 5"],
-  ["claude-sonnet-5", "Claude Sonnet 5"],
-  ["claude-haiku-4-5", "Claude Haiku 4.5"],
-];
+function chatSection(providers: ProviderInfo[], present: Record<string, boolean>): HTMLElement {
+  if (providers.length === 0) {
+    return h("section", {}, h("h2", {}, h("span", { text: "Chat" })),
+      h("div", { class: "notice err", text: "No chat providers available." }));
+  }
+  const body = h("div", { style: "display:flex;flex-direction:column;gap:12px" });
 
-function apiSection(hasKey: boolean): HTMLElement {
-  const dot = statusDot(hasKey);
-  const state = h("span", { class: "hint", text: hasKey ? "Key saved in the Windows Credential Manager." : "No key yet — the chat needs one." });
-
-  const field = h("input", {
-    type: "password",
-    placeholder: hasKey ? "••••••••••••  (stored)" : "sk-ant-...",
-    style: "flex:1 1 auto;min-width:0",
-    autocomplete: "off",
-    spellcheck: "false",
-  }) as HTMLInputElement;
-
-  const saveBtn = h("button", { class: "primary", text: "Save key" });
-  const clearBtn = h("button", { class: "danger", text: "Remove" });
-  const feedback = h("div", {});
-
-  async function refresh() {
-    const present = (await Bridge.secretPresent("anthropic-api-key")) ?? false;
-    dot.style.background = present ? "#22c55e" : "#f4505e";
-    state.textContent = present
-      ? "Key saved in the Windows Credential Manager."
-      : "No key yet — the chat needs one.";
-    field.placeholder = present ? "••••••••••••  (stored)" : "sk-ant-...";
-    clearBtn.style.display = present ? "" : "none";
+  function activeProvider(): ProviderInfo {
+    return providers.find((p) => p.id === settings.llmProvider) ?? providers[0];
   }
 
-  saveBtn.addEventListener("click", async () => {
-    const value = field.value.trim();
-    if (!value) return;
-    clear(feedback);
-    try {
-      await Bridge.secretSet("anthropic-api-key", value);
-      field.value = "";
-      feedback.append(h("div", { class: "notice ok", text: "Saved. It never touches disk." }));
-      await refresh();
-    } catch (err) {
-      feedback.append(h("div", { class: "notice err", text: `Could not save: ${String(err)}` }));
-    }
-  });
+  async function draw() {
+    const provider = activeProvider();
+    const key = provider.credentialKey;
+    const hasKey = key ? (present[key] ?? false) : false;
 
-  clearBtn.addEventListener("click", async () => {
-    clear(feedback);
-    try {
-      await Bridge.secretClear("anthropic-api-key");
-      feedback.append(h("div", { class: "notice ok", text: "Key removed." }));
-      await refresh();
-    } catch (err) {
-      feedback.append(h("div", { class: "notice err", text: `Could not remove: ${String(err)}` }));
-    }
-  });
+    clear(body);
 
-  const model = h("select", {}) as HTMLSelectElement;
-  for (const [id, label] of MODELS) model.append(h("option", { value: id, text: label }));
-  if (!MODELS.some(([id]) => id === settings.model)) {
-    model.append(h("option", { value: settings.model, text: settings.model }));
+    body.append(
+      h("div", {
+        class: "hint",
+        text: provider.webSearch
+          ? "Claude answers with live web search. Choose a provider below — each one keeps its own conversation."
+          : `${provider.name} answers without web search. Choose a provider below — each one keeps its own conversation.`,
+      }),
+    );
+
+    // Provider dropdown.
+    const providerSelect = h("select", {}) as HTMLSelectElement;
+    for (const p of providers) providerSelect.append(h("option", { value: p.id, text: p.name }));
+    providerSelect.value = provider.id;
+    providerSelect.addEventListener("change", () => {
+      const next = providers.find((p) => p.id === providerSelect.value) ?? providers[0];
+      settings.llmProvider = next.id;
+      settings.model = next.models[0].id;
+      void save();
+      void draw();
+    });
+    body.append(h("div", { class: "row" }, h("label", { text: "Provider" }), providerSelect));
+
+    // Model dropdown — the active provider's list.
+    const model = h("select", {}) as HTMLSelectElement;
+    for (const m of provider.models) model.append(h("option", { value: m.id, text: m.label }));
+    if (!provider.models.some((m) => m.id === settings.model)) {
+      model.append(h("option", { value: settings.model, text: settings.model }));
+    }
+    model.value = settings.model;
+    model.addEventListener("change", () => {
+      settings.model = model.value;
+      void save();
+    });
+    body.append(h("div", { class: "row" }, h("label", { text: "Model" }), model));
+
+    // API key (or endpoint for Ollama, which needs no key).
+    if (key) {
+      const dot = statusDot(hasKey);
+      const state = h("span", {
+        class: "hint",
+        text: hasKey ? "Key saved in the Windows Credential Manager." : "No key yet — this provider needs one.",
+      });
+      const field = h("input", {
+        type: "password",
+        placeholder: hasKey ? "••••••••••••  (stored)" : provider.keyHint,
+        style: "flex:1 1 auto;min-width:0",
+        autocomplete: "off",
+        spellcheck: "false",
+      }) as HTMLInputElement;
+      const saveBtn = h("button", { class: "primary", text: "Save key" });
+      const clearBtn = h("button", { class: "danger", text: "Remove" });
+      const feedback = h("div", {});
+      clearBtn.style.display = hasKey ? "" : "none";
+
+      saveBtn.addEventListener("click", async () => {
+        const value = field.value.trim();
+        if (!value) return;
+        clear(feedback);
+        try {
+          await Bridge.secretSet(key, value);
+          present[key] = true;
+          field.value = "";
+          field.placeholder = "••••••••••••  (stored)";
+          dot.style.background = "#22c55e";
+          state.textContent = "Key saved in the Windows Credential Manager.";
+          clearBtn.style.display = "";
+          feedback.append(h("div", { class: "notice ok", text: "Saved. It never touches disk." }));
+        } catch (err) {
+          feedback.append(h("div", { class: "notice err", text: `Could not save: ${String(err)}` }));
+        }
+      });
+
+      clearBtn.addEventListener("click", async () => {
+        clear(feedback);
+        try {
+          await Bridge.secretClear(key);
+          present[key] = false;
+          field.placeholder = provider.keyHint;
+          dot.style.background = "#f4505e";
+          state.textContent = "No key yet — this provider needs one.";
+          clearBtn.style.display = "none";
+          feedback.append(h("div", { class: "notice ok", text: "Key removed." }));
+        } catch (err) {
+          feedback.append(h("div", { class: "notice err", text: `Could not remove: ${String(err)}` }));
+        }
+      });
+
+      body.append(
+        h("div", { class: "row" }, h("label", { text: "API key" }), field, saveBtn, clearBtn),
+        h("div", { class: "row" }, dot, state),
+        feedback,
+      );
+    } else if (provider.urlKey) {
+      // Ollama runs locally — an editable endpoint, not a key.
+      const urlKey = provider.urlKey;
+      const hasUrl = present[urlKey] ?? false;
+      const field = h("input", {
+        type: "text",
+        placeholder: hasUrl ? "••••  (stored)" : "http://localhost:11434",
+        style: "flex:1 1 auto;min-width:0",
+        autocomplete: "off",
+        spellcheck: "false",
+      }) as HTMLInputElement;
+      const saveBtn = h("button", { class: "primary", text: "Save URL" });
+      const feedback = h("div", {});
+      saveBtn.addEventListener("click", async () => {
+        const value = field.value.trim();
+        if (!value) return;
+        clear(feedback);
+        try {
+          await Bridge.secretSet(urlKey, value);
+          present[urlKey] = true;
+          field.value = "";
+          field.placeholder = "••••  (stored)";
+          feedback.append(h("div", { class: "notice ok", text: "Endpoint saved." }));
+        } catch (err) {
+          feedback.append(h("div", { class: "notice err", text: `Could not save: ${String(err)}` }));
+        }
+      });
+      body.append(
+        h("div", { class: "row" }, h("label", { text: "Endpoint" }), field, saveBtn),
+        h("div", { class: "hint", text: "Ollama needs no API key. Start it with `ollama serve` and pull the model you picked." }),
+        feedback,
+      );
+    }
+
+    if (provider.webSearch) {
+      body.append(h("div", { class: "hint", text: "Web search and the server-side fallback model are Claude-only for now." }));
+    }
   }
-  model.value = settings.model;
-  model.addEventListener("change", () => {
-    settings.model = model.value;
-    void save();
-  });
 
-  clearBtn.style.display = hasKey ? "" : "none";
-
-  return h(
-    "section",
-    {},
-    h("h2", {}, dot, h("span", { text: "Claude" })),
-    state,
-    h("div", { class: "row" }, h("label", { text: "API key" }), field, saveBtn, clearBtn),
-    h("div", { class: "row" }, h("label", { text: "Model" }), model),
-    feedback,
-  );
+  void draw();
+  return h("section", {}, h("h2", {}, h("span", { text: "Chat" })), body);
 }
 
 // ── Integrations section ──────────────────────────────────────────────────────
@@ -565,23 +637,24 @@ async function main() {
     installed: false, settingsPath: "", hookPath: "", hookReady: false,
   };
 
-  const hasKey = (await Bridge.secretPresent("anthropic-api-key")) ?? false;
-
   const agentStatuses = (await Bridge.agentsStatus()) ?? [];
+
+  const providers = (await Bridge.chatProviders()) ?? [];
 
   const keys = [
     "stripe-api-key", "github-token", "vercel-token",
     "n8n-url", "n8n-api-key", "resend-api-key", "notion-api-key", "calcom-api-key",
+    ...providers.flatMap((p) => [p.credentialKey, p.urlKey]).filter((k): k is string => !!k),
   ];
   const present: Record<string, boolean> = {};
-  for (const k of keys) present[k] = (await Bridge.secretPresent(k)) ?? false;
+  for (const k of [...new Set(keys)]) present[k] = (await Bridge.secretPresent(k)) ?? false;
 
   clear(root);
   root.append(
     h("h1", {}, h("span", { text: "Perch" }), h("span", { class: "version", text: version })),
     claudeSection(status),
     agentsSection(agentStatuses),
-    apiSection(hasKey),
+    chatSection(providers, present),
     integrationsSection(present),
     generalSection(),
     h("div", {

@@ -1,7 +1,6 @@
 // App state — mirror of AppState.swift (the parts the island needs).
 
-import type { BotEmoteName, BotStateName, IslandMode, IslandViewName } from "./layout";
-import type { EyeShape } from "../pip/engine";
+import type { BotStateName, IslandMode, IslandViewName } from "./layout";
 
 export type AgentSource = "claudeCode" | "codex" | "opencode" | "zcode" | "generic" | "n8n";
 export type PillBadge = "approval" | "finished" | "error";
@@ -15,8 +14,6 @@ export interface AgentTask {
   steps: string[];
   source: AgentSource;
   isIntegration: boolean;
-  emote?: BotEmoteName | null;
-  miniEye?: EyeShape | null;
   pillBadge?: PillBadge | null;
   sessionCwd?: string | null;
 }
@@ -105,8 +102,10 @@ export interface Settings {
   screen: "primary" | "cursor";
   autostart: boolean;
   hooksInstalled: boolean;
-  /** Claude model used by the chat. */
+  /** Model used by the chat, from the active provider's list. */
   model: string;
+  /** Which provider answers the chat: anthropic | openai | gemini | … */
+  llmProvider: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -121,6 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   hooksInstalled: false,
   model: "claude-opus-5",
+  llmProvider: "anthropic",
 };
 
 type Listener = () => void;

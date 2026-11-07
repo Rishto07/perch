@@ -13,7 +13,7 @@ import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { BotEngine, hexToRGB } from "../pip/engine";
 import { Greeting } from "../pip/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../pip/minibots";
+import { createToken, syncToken } from "../pip/rail";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
@@ -43,7 +43,7 @@ export class Island {
   private botCanvas!: HTMLCanvasElement;
   private botGlow!: HTMLElement;
   private greetingCanvas!: HTMLCanvasElement;
-  private miniGrid!: HTMLElement;
+  private compactRail!: HTMLElement;
   private countdown!: HTMLElement;
   private wakeStrip!: HTMLElement;
 
@@ -184,7 +184,7 @@ export class Island {
     this.botGlow = h("div", { id: "bot-glow" });
     this.botCanvas = h("canvas", { id: "bot-canvas" });
     this.greetingCanvas = h("canvas", { id: "greeting-canvas" });
-    this.miniGrid = h("div", { id: "mini-grid" });
+    this.compactRail = h("div", { id: "compact-rail" });
     this.countdown = h("div", { id: "countdown" });
 
     this.header = buildHeader(actions);
@@ -218,7 +218,7 @@ export class Island {
       this.clipEl,
       this.botGlow,
       this.botCanvas,
-      this.miniGrid,
+      this.compactRail,
       this.countdown,
     );
 
@@ -490,8 +490,8 @@ export class Island {
     this.islandEl.style.transform = `translateX(-50%)`;
     // These follow the island as it resizes, so they belong here rather than in
     // the state-driven DOM sync.
-    this.miniGrid.style.left = `${w - 40 - 14.5}px`;
-    this.miniGrid.style.top = `${hh / 2 - 14.5}px`;
+    this.compactRail.style.left = `${w - 52}px`;
+    this.compactRail.style.top = `${hh / 2 - 6}px`;
     this.greetingCanvas.style.left = `${(w - EXPANDED_W) / 2}px`;
     this.uploadCanvas.el.style.left = `${(w - EXPANDED_W) / 2}px`;
 
@@ -716,7 +716,6 @@ export class Island {
     this.uploadCanvas.el.classList.toggle("on", uploadActive);
     this.viewsEl.classList.toggle("hidden-by-upload", uploadActive);
 
-    tickMiniBots(dt);
     this.views.get(State.view)?.tick?.(nowMs);
     if (UploadSeq.isActive) this.stepSequence();
     this.updateCountdown(nowMs);
@@ -860,23 +859,23 @@ export class Island {
       }
     }
 
-    // Compact mini grid
-    const showGrid = State.mode === "compact";
-    this.miniGrid.style.opacity = showGrid ? "1" : "0";
-    if (showGrid) {
+    // Compact agent rail
+    const showRail = State.mode === "compact";
+    this.compactRail.style.opacity = showRail ? "1" : "0";
+    if (showRail) {
       const others = State.otherTasks.slice(0, 4);
       const key = others.map((t) => t.id).join("|");
-      if (this.miniGrid.dataset.key !== key) {
-        this.miniGrid.dataset.key = key;
-        this.miniGrid.replaceChildren();
-        for (const t of others) {
-          this.miniGrid.append(createMiniBot(t, 13));
-        }
-        pruneMiniBots();
+      if (this.compactRail.dataset.key !== key) {
+        this.compactRail.dataset.key = key;
+        this.compactRail.replaceChildren();
+        for (const t of others) this.compactRail.append(createToken(t, { size: 11 }));
+      }
+      for (const [i, t] of others.entries()) {
+        const token = this.compactRail.children[i] as HTMLElement | undefined;
+        if (token) syncToken(token, t);
       }
     }
 
-    syncMiniBotStates(State.tasks);
     this.engine.setState(State.effectiveState);
   }
 
