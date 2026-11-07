@@ -19,6 +19,8 @@ export interface ViewActions {
   openTerminal(): void;
   /** The ↗ button: opens whatever the focused pill points at. */
   openTarget(): void;
+  /** Double-click a pill: launch THAT agent's desktop app. */
+  openAgentTask(id: string): void;
   openUrl(url: string): void;
   decide(d: "allow" | "deny"): void;
   toggleSound(): void;
@@ -245,7 +247,12 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
   const canvas = createMiniBot(task, 24);
   const pill = h(
     "div",
-    { class: "pill", onclick: () => actions.setFocus(task.id) },
+    {
+      class: "pill",
+      title: `${label} — ${task.state}${task.steps.length > 1 ? ` · ${task.stepIndex + 1}/${task.steps.length}` : ""} · double-click to open`,
+      onclick: () => actions.setFocus(task.id),
+      ondblclick: () => actions.openAgentTask(task.id),
+    },
     canvas,
     h("span", { class: "lbl", text: label }),
   );

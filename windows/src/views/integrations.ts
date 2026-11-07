@@ -75,6 +75,24 @@ function idleCard(task: AgentTask, openSettings: () => void): HTMLElement {
   const statusColor = error || !configured ? "#F4505E" : "#22C55E";
 
   const actions = h("div", { class: "int-actions" });
+  // Elite: copy the session project path — paste it anywhere.
+  if (task.sessionCwd) {
+    const copyBtn = h("button", {
+      class: "link-btn",
+      style: `color:${task.color}b3`,
+      text: "Copy path",
+    });
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(task.sessionCwd ?? "");
+        copyBtn.textContent = "Copied ✓";
+        setTimeout(() => { copyBtn.textContent = "Copy path"; }, 1200);
+      } catch {
+        copyBtn.textContent = "Copy failed";
+      }
+    });
+    actions.append(copyBtn);
+  }
   if (task.id === "integration_claude") {
     actions.append(
       h("button", {

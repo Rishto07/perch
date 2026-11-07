@@ -53,18 +53,20 @@ export interface SearchResult {
 }
 
 const task = (
-  id: string, name: string, color: string, source: AgentSource,
+  id: string, name: string, color: string, source: AgentSource, emote?: BotEmoteName,
 ): AgentTask => ({
-  id, name, color, state: "idle", stepIndex: 0, steps: [], source, isIntegration: true,
+  id, name, color, state: "idle", stepIndex: 0, steps: [], source, isIntegration: true, emote: emote ?? null,
 });
 
-/** AgentTask.integrationAgents — same ids, names and colours as macOS. */
+/** AgentTask.integrationAgents — same ids, names and colours as macOS.
+ *  Elites: each coding agent gets its own permanent personality emote
+ *  (cheeky wink, proud hop, happy bounce, …) the mini bird performs. */
 export const INTEGRATION_AGENTS: AgentTask[] = [
-  task("integration_claude", "VS Code", "#F5F6F8", "claudeCode"),
-  task("integration_codex", "Codex", "#34D399", "codex"),
-  task("integration_opencode", "OpenCode", "#F472B6", "opencode"),
-  task("integration_zcode", "Zcode", "#A78BFA", "zcode"),
-  task("integration_generic", "Agent", "#94A3B8", "generic"),
+  task("integration_claude", "VS Code", "#F5F6F8", "claudeCode", "surprised"),
+  task("integration_codex", "Codex", "#34D399", "codex", "wink"),
+  task("integration_opencode", "OpenCode", "#F472B6", "opencode", "happy"),
+  task("integration_zcode", "Zcode", "#A78BFA", "zcode", "proud"),
+  task("integration_generic", "Agent", "#94A3B8", "generic", "yawn"),
   task("integration_resend", "Resend", "#22C55E", "n8n"),
   task("integration_n8n", "n8n", "#F29B38", "n8n"),
   task("integration_vercel", "Vercel", "#7C5CFF", "n8n"),

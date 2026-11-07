@@ -13,7 +13,7 @@ import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { BotEngine, hexToRGB } from "../pip/engine";
 import { Greeting } from "../pip/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../pip/minibots";
+import { createMiniBot, pruneMiniBots, setFlockBoost, syncMiniBotStates, tickMiniBots } from "../pip/minibots";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
@@ -141,6 +141,12 @@ export class Island {
           void Bridge.openAgent(task.id, task.sessionCwd ?? null);
         else if (task.id === "integration_n8n") void Bridge.openN8n();
         else if (urls[task.id]) void Bridge.openUrl(urls[task.id]);
+      },
+      openAgentTask: (id) => {
+        const task = State.tasks.find((t) => t.id === id) ?? State.focusTask;
+        if (!task) return;
+        State.setFocus(id);
+        void Bridge.openAgent(id, task.sessionCwd ?? null);
       },
       openUrl: (url) => {
         if (url) void Bridge.openUrl(url);
@@ -803,6 +809,8 @@ export class Island {
       }
     }
     this.engine.update(dt);
+    // Flock ripple: when Pip bristles with excitement, nearby minis wake up.
+    setFlockBoost(this.engine.excite);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, hCss);
     this.engine.draw(ctx, w, hCss);

@@ -2,6 +2,7 @@
 // Each canvas owns a BotEngine; the island's frame loop ticks every live one.
 
 import { BotEngine, hexToRGB } from "./engine";
+import { Sound } from "../core/sound";
 import type { AgentTask } from "../core/state";
 
 interface MiniBot {
@@ -11,9 +12,17 @@ interface MiniBot {
   taskId: string;
   slot: HTMLElement;
   hovered: boolean;
+  clicks: number[];
+  lastState: string;
 }
 
 const live = new Map<HTMLCanvasElement, MiniBot>();
+
+// Flock ripple: when Pip herself gets excited, minis wake up staggered.
+let flockBoost = 0;
+export function setFlockBoost(v: number) {
+  flockBoost = Math.max(0, Math.min(1, v));
+}
 
 // Elite mini-birds: track the real cursor across the island window.
 const mouse = { x: -9999, y: -9999, active: false };
@@ -82,6 +91,7 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
     const mb = live.get(canvas);
     if (mb) mb.hovered = true;
     engine.exciteBurst();
+    Sound.play("blip");
   });
   slot.addEventListener("mouseleave", () => {
     const mb = live.get(canvas);
@@ -90,11 +100,29 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
   });
   slot.addEventListener("mousedown", (e) => {
     e.stopPropagation();
+    const mb = live.get(canvas);
     engine.poke();
+    Sound.play("work");
+    // Easter egg: 3 rapid pokes → dizzy spin, like Pip's slap.
+    if (mb) {
+      const t = performance.now() / 1000;
+      mb.clicks = mb.clicks.filter((s) => t - s < 1.7);
+      mb.clicks.push(t);
+      if (mb.clicks.length >= 3) {
+        mb.clicks = [];
+        engine.doRoll(1300, 2);
+        engine.eyeOverride = "spiral";
+        engine.eyeOverrideUntil = t + 1.5;
+        Sound.play("dizzy");
+      }
+    }
     // Let the pill's own click (setFocus) still run — this only adds the bird play.
   });
 
-  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, slot, hovered: false });
+  slot.title = `${task.name} — ${task.state} · double-click to open`;
+  // Hatch-in: new birds pop in excited with a little hop.
+  engine.exciteBurst();
+  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, slot, hovered: false, clicks: [], lastState: task.state });
   return slot;
 }
 
@@ -113,8 +141,16 @@ export function syncMiniBotStates(tasks: AgentTask[]) {
   for (const mb of live.values()) {
     const task = tasks.find((t) => t.id === mb.taskId);
     if (!task) continue;
+    // Celebration: when an agent finishes, its bird does a happy jump.
+    if (task.state === "finished" && mb.lastState !== "finished") {
+      mb.engine.triggerEmote("happy");
+      mb.engine.exciteBurst();
+      Sound.play("finish");
+    }
+    mb.lastState = task.state;
     mb.engine.setState(task.state);
     mb.engine.bodyColor = hexToRGB(task.color);
+    mb.slot.title = `${task.name} — ${task.state}${task.steps.length > 1 ? ` · ${task.stepIndex + 1}/${task.steps.length}` : ""} · double-click to open`;
   }
 }
 
@@ -135,7 +171,9 @@ export function tickMiniBots(dt: number) {
       mb.engine.lastCursor = performance.now() / 1000;
       const dist = Math.hypot(dx, dy);
       const prox = Math.max(0, Math.min(1, 1 - dist / 260));
-      mb.engine.exciteTarget = mb.hovered ? 1 : prox * 0.7;
+      // Flock ripple + proximity: near birds wake up with Pip.
+      const flock = Math.max(0, Math.min(1, flockBoost * prox * 1.4));
+      mb.engine.exciteTarget = mb.hovered ? 1 : Math.max(prox * 0.7, flock);
     } else if (!mb.hovered) {
       mb.engine.exciteTarget = 0;
     }
