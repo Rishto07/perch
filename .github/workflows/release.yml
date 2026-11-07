@@ -1,17 +1,41 @@
-name: Release (build check)
+# v0.1.1-style multi-platform release artifacts.
+#
+# The Windows installer is built locally (verified SHA-256 in the release
+# notes) and is NOT rebuilt here. This workflow adds the macOS artifact:
+# Universal 2 Perch.app packaged as a DMG, uploaded to the same GitHub
+# Release that holds the Windows installer. Tag `v*` triggers it
+# automatically; it can also be re-run by hand against an existing release
+# (workflow_dispatch) without creating duplicates.
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing tag/release to attach the macOS DMG to'
+        required: false
+        default: 'v0.1.1'
 
-# Notarization is done locally with scripts/release.sh.
-# This workflow only verifies the build compiles on a clean machine.
+permissions:
+  contents: write
+
 jobs:
-  build-check:
+  macos-dmg:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.release_tag || 'v0.1.1' }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -19,7 +43,10 @@ jobs:
       - name: Generate project
         run: cd Perch && xcodegen
 
-      - name: Build Release (no signing)
+      - name: Run Swift geometry tests
+        run: bash scripts/test-screen-geometry.sh
+
+      - name: Build Release framework (Universal 2, no signing)
         run: |
           xcodebuild \
             -project Perch/Perch.xcodeproj \
@@ -27,4 +54,40 @@ jobs:
             -configuration Release \
             build \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            ARCHS="arm64 x86_64" \
+            SYMROOT="$RUNNER_TEMP/build" \
+            TAGS="perch-release"
+
+      - name: Verify architecture of built app
+        run: |
+          APP="$RUNNER_TEMP/build/Release/Perch.app"
+          ls -la "$APP"
+          lipo -info "$APP/Contents/MacOS/Perch" || lipo -info "$APP/Contents/MacOS/"*
+
+      - name: Create DMG
+        run: |
+          STAGE="$RUNNER_TEMP/dmg-stage"
+          mkdir -p "$STAGE"
+          cp -R "$RUNNER_TEMP/build/Release/Perch.app" "$STAGE/Perch.app"
+          ls -la "$STAGE"
+          hdiutil create \
+            -volname "Perch" \
+            -srcfolder "$STAGE" \
+            -ov -format UDZO \
+            "Perch-macOS-${{ steps.tag.outputs.tag }}.dmg"
+          ls -lh Perch-macOS-*.dmg
+
+      - name: Checksum
+        run: |
+          shasum -a 256 Perch-macOS-*.dmg | tee SHA256SUMS.txt
+          cat SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload DMG to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            Perch-macOS-${{ steps.tag.outputs.tag }}.dmg \
+            --clobber
