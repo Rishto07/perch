@@ -52,7 +52,7 @@ struct AgentPill: View {
         case "integration_codex":    return "Codex"
         case "integration_opencode": return "OpenCode"
         case "integration_zcode":    return "Zcode"
-        case "integration_generic":  return "Agent"
+        case "integration_generic":  return "Claude App"
         default:                     return task.name
         }
     }

@@ -153,16 +153,36 @@ pub(crate) fn open_in_vscode(path: Option<String>) -> bool {
 #[tauri::command]
 pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
     let binding = agent.trim().to_lowercase();
-    // Claude/GUI agents delegate to VS Code handling (Claude Desktop is also
-    // tried there via known paths).
+    // Claude (VS Code pill) keeps VS Code handling; the generic pill is the
+    // Claude App — launch Claude Desktop, falling back to VS Code.
     match binding.as_str() {
         "integration_claude" | "claude" | "claude-code" => {
             return open_in_vscode(path);
         }
-        "integration_generic" | "generic" => {
-            return open_in_vscode(path);
-        }
         _ => {}
+    }
+    if binding == "integration_generic" || binding == "generic" {
+        // Claude App: try Claude Desktop first (all Claude known paths),
+        // then VS Code so the click still lands somewhere useful.
+        let dir = launch_dir(path.clone());
+        for candidate in known_desktop_paths("claude") {
+            if candidate.is_file() {
+                let mut cmd = Command::new(candidate.clone());
+                if let Some(p) = dir.as_deref() {
+                    // Claude Desktop accepts a folder arg in most builds.
+                    cmd.arg(p);
+                    cmd.current_dir(p);
+                }
+                if cmd.creation_flags(CREATE_NO_WINDOW).spawn().is_ok() {
+                    log::line(format!(
+                        "open_agent: launched generic (Claude App) desktop {}",
+                        candidate.display()
+                    ));
+                    return true;
+                }
+            }
+        }
+        return open_in_vscode(path);
     }
     let stem: &str = match binding.as_str() {
         "integration_codex" | "codex" => "codex",

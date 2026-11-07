@@ -242,7 +242,7 @@ function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
     : task.id === "integration_codex" ? "Codex"
     : task.id === "integration_opencode" ? "OpenCode"
     : task.id === "integration_zcode" ? "Zcode"
-    : task.id === "integration_generic" ? "Agent"
+    : task.id === "integration_generic" ? "Claude App"
     : task.name;
   const canvas = createMiniBot(task, 24);
   const pill = h(
@@ -295,7 +295,7 @@ function agentToolLabel(source: string): string {
     case "codex": return "Codex";
     case "opencode": return "OpenCode";
     case "zcode": return "Zcode";
-    case "generic": return "Agent";
+    case "generic": return "Claude App";
     case "claudeCode": return "Claude Code";
     default: return "n8n";
   }

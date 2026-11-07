@@ -66,7 +66,7 @@ export const INTEGRATION_AGENTS: AgentTask[] = [
   task("integration_codex", "Codex", "#34D399", "codex", "wink"),
   task("integration_opencode", "OpenCode", "#F472B6", "opencode", "happy"),
   task("integration_zcode", "Zcode", "#A78BFA", "zcode", "proud"),
-  task("integration_generic", "Agent", "#94A3B8", "generic", "yawn"),
+  task("integration_generic", "Claude App", "#C15F3C", "generic", "happy"),
   task("integration_resend", "Resend", "#22C55E", "n8n"),
   task("integration_n8n", "n8n", "#F29B38", "n8n"),
   task("integration_vercel", "Vercel", "#7C5CFF", "n8n"),

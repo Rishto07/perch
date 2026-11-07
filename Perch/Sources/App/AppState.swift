@@ -11,7 +11,7 @@ extension AgentTask {
         AgentTask(id: "integration_codex",   name: "Codex",     color: "#34D399", state: .idle, steps: [], source: .codex, isIntegration: true),
         AgentTask(id: "integration_opencode", name: "OpenCode", color: "#F472B6", state: .idle, steps: [], source: .opencode, isIntegration: true),
         AgentTask(id: "integration_zcode",   name: "Zcode",     color: "#A78BFA", state: .idle, steps: [], source: .zcode, isIntegration: true),
-        AgentTask(id: "integration_generic", name: "Agent",     color: "#94A3B8", state: .idle, steps: [], source: .generic, isIntegration: true),
+        AgentTask(id: "integration_generic", name: "Claude App", color: "#C15F3C", state: .idle, steps: [], source: .generic, isIntegration: true),
         AgentTask(id: "integration_resend",  name: "Resend",    color: "#22C55E", state: .idle, steps: [], source: .n8n, isIntegration: true),
         AgentTask(id: "integration_n8n",     name: "n8n",       color: "#F29B38", state: .idle, steps: [], source: .n8n, isIntegration: true),
         AgentTask(id: "integration_vercel",  name: "Vercel",    color: "#7C5CFF", state: .idle, steps: [], source: .n8n, isIntegration: true),

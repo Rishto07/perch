@@ -101,7 +101,7 @@ struct OverviewView: View {
         case "integration_zcode":
             openAgentApp(named: "Zcode", path: task.sessionCwd)
         case "integration_generic":
-            openAgentApp(named: "Visual Studio Code", path: task.sessionCwd)
+            openAgentApp(named: "Claude", path: task.sessionCwd)
         case "integration_resend":
             NSWorkspace.shared.open(URL(string: "https://resend.com/emails")!)
         case "integration_vercel":
@@ -146,6 +146,7 @@ struct OverviewView: View {
             "OpenCode": "com.opencode.app",
             "Zcode": "com.zcode.app",
             "Visual Studio Code": "com.microsoft.VSCode",
+            "Claude": "com.anthropic.claudefordesktop",
         ]
         if let id = bundleIds[name],
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {

@@ -125,7 +125,7 @@ function idleCard(task: AgentTask, openSettings: () => void): HTMLElement {
       task.id === "integration_codex" ? "Open Codex"
       : task.id === "integration_opencode" ? "Open OpenCode"
       : task.id === "integration_zcode" ? "Open Zcode"
-      : "Open project";
+      : "Open Claude App";
     actions.append(openBtn(agentName, task.color, () => Bridge.openAgent(task.id, task.sessionCwd ?? null)));
   } else if (task.id === "integration_n8n") {
     actions.append(
