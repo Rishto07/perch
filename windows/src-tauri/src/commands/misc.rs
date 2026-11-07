@@ -39,6 +39,39 @@ pub(crate) fn open_in_vscode(path: Option<String>) -> bool {
     false
 }
 
+/// Open the agent's own desktop app at the project folder.
+/// `agent` is the task id ("integration_codex" etc.) — the CLI name on PATH is
+/// also accepted directly. Falls back to VS Code/Explorer so the click never
+/// looks dead when the agent isn't installed.
+#[tauri::command]
+pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
+    let binding = agent.trim().to_lowercase();
+    let stem = match binding.as_str() {
+        "integration_claude" | "claude" | "claude-code" => {
+            return open_in_vscode(path);
+        }
+        "integration_codex" | "codex" => "codex",
+        "integration_opencode" | "opencode" => "opencode",
+        "integration_zcode" | "zcode" => "zcode",
+        "integration_generic" | "generic" => {
+            return open_in_vscode(path);
+        }
+        _ => binding.as_str(),
+    };
+    if let Some(exe) = find_on_path(stem) {
+        let mut cmd = Command::new(exe);
+        if let Some(p) = path.as_deref().filter(|p| !p.is_empty()) {
+            // Desktop TUIs / apps accept a folder as their first arg.
+            cmd.arg(p);
+            cmd.current_dir(p);
+        }
+        if cmd.creation_flags(CREATE_NO_WINDOW).spawn().is_ok() {
+            return true;
+        }
+    }
+    open_in_vscode(path)
+}
+
 /// Our own `where`: walks %PATH% against %PATHEXT%, no shell involved.
 /// Rust quotes arguments correctly for `.cmd`/`.bat` targets since 1.77, so
 /// spawning `code.cmd` directly is safe.

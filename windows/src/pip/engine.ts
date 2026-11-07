@@ -188,6 +188,12 @@ export class BotEngine {
   idleHeadTurn = 0;
   /** Extra bob amplitude for breathing. */
   breatheAmt = 0;
+  /** Elite mini-bird: 0 = calm … 1 = fully excited (hover / close to cursor). */
+  excite = 0;
+  exciteTarget = 0;
+  /** Last time a real cursor sample drove this engine (mini cursor-follow). */
+  lastCursor = -99;
+  /** Elite mini-bird methods */
 
   // Animated state (BotEngine `s`)
   yaw = 0; pitch = 0; roll = 0; tilt = 0; open = 1;
@@ -380,6 +386,31 @@ export class BotEngine {
     this.anim("hands", [[0, 150, Ease.inOut]]);
   }
 
+  /** Tiny hop + squash: the elite mini-bird's click reaction. */
+  poke() {
+    this.squash();
+    this.blink();
+    this.emit("heart", 2);
+    this.excite = 1;
+    this.exciteTarget = 1;
+  }
+
+  /** Hover burst: wings flutter, eyes widen, happy hop. */
+  exciteBurst() {
+    this.excite = 1;
+    this.exciteTarget = 1;
+    if (this.state !== "sleeping" && this.state !== "dizzy") {
+      this.eyeOverride = "happy";
+      this.eyeOverrideUntil = now() + 0.6;
+      this.anim("oy", [[-0.16, 120, Ease.out], [0, 260, Ease.back]]);
+    }
+  }
+
+  /** Calm: hover ended, excitement decays back to idle. */
+  exciteCalm() {
+    this.exciteTarget = 0;
+  }
+
   setPermanentEmote(emote: BotEmoteName | null) {
     this.permanentEmote = emote;
     if (emote === "wink") {
@@ -538,17 +569,21 @@ export class BotEngine {
     if (this.state === "sleeping") { ty = 0; tp = -0.14; }
     if (this.state === "dizzy") { ty = Math.sin(t * 9) * 0.25; }
 
-    // Mini bots never follow the mouse — they wander.
+    // Mini birds: follow the cursor when one is near (set by minibots),
+    // otherwise wander. Look smoothing + hover excitement below.
     if (this.isMini && !this.cfg.look && !this.cfg.scans && this.state !== "sleeping" && this.state !== "dizzy") {
-      if (n > this.miniLookNextTime) {
+      const cursorFresh = n - this.lastCursor < 3;
+      if (!cursorFresh && n > this.miniLookNextTime) {
         this.miniLookTarget = {
           x: -0.88 + Math.random() * 1.76,
           y: -0.55 + Math.random() * 1.0,
         };
         this.miniLookNextTime = n + 0.5 + Math.random() * 1.5;
+      } else if (!cursorFresh) {
+        ty = this.miniLookTarget.x * 0.62;
+        tp = this.miniLookTarget.y * 0.5;
       }
-      ty = this.miniLookTarget.x * 0.62;
-      tp = this.miniLookTarget.y * 0.5;
+      // cursorFresh: ty/tp already hold the cursor look from lookX/lookY.
     }
 
     this.tgYaw = ty;
@@ -583,11 +618,14 @@ export class BotEngine {
       const alive = this.state !== "sleeping" && this.state !== "dizzy";
       const t = n - this.t0;
 
+      // Elite excitement: hover / proximity pushes wings, eyes and hop.
+      this.excite += (this.exciteTarget - this.excite) * Math.min(1, dt * 6);
+
       // Continuous wing beat — always some flutter for life
       if (alive) {
-        const beatFreq = this.state === "working" ? 4.5 :
-                         this.state === "thinking" ? 3.8 :
-                         this.state === "searching" ? 5 : 4;
+        const beatFreq = (this.state === "working" ? 4.5 :
+                          this.state === "thinking" ? 3.8 :
+                          this.state === "searching" ? 5 : 4) * (1 + this.excite * 1.6);
         this.wingPhase = 0.5 + 0.4 * Math.sin(t * beatFreq);
         this.wingPhase = clamp(this.wingPhase, 0.1, 0.9);
       } else {
@@ -596,17 +634,27 @@ export class BotEngine {
       }
 
       // Tail fans with tilt and excitement
-      const tailTarget = alive ? 0.3 + Math.abs(this.tilt) * 0.5 : 0;
+      const tailTarget = alive ? 0.3 + Math.abs(this.tilt) * 0.5 + this.excite * 0.4 : 0;
       this.tailOpen += (tailTarget - this.tailOpen) * 0.1;
 
-      // Bobbing — gentle vertical oscillation
-      this.birdBob = alive ? Math.sin(t * 2.5) * 0.025 : Math.sin(t * 0.8) * 0.015;
+      // Bobbing — gentle vertical oscillation, excited hop when hovered
+      const hop = alive ? this.excite * 0.05 : 0;
+      this.birdBob = alive ? Math.sin(t * 2.5) * 0.025 - Math.abs(Math.sin(t * 7)) * hop : Math.sin(t * 0.8) * 0.015;
 
-      // Breathing — subtle scale oscillation
-      this.breatheAmt = Math.sin(t * 1.8) * 0.02;
+      // Breathing — subtle scale oscillation, bigger when excited
+      this.breatheAmt = Math.sin(t * 1.8) * (0.02 + this.excite * 0.025);
+
+      // Excited birds widen their eyes.
+      if (alive) this.tgEs = 1 + this.excite * 0.35;
+      else this.tgEs = 1;
+
+      // Proximity lean: tilt toward the cursor; calm otherwise.
+      this.birdTiltWobble = alive
+        ? lerp(this.birdTiltWobble, this.lookX * 0.14 * this.excite, 0.12)
+        : this.birdTiltWobble;
 
       // Idle head turns — look around randomly
-      if (alive && !this.cfg.look && !this.cfg.scans) {
+      if (alive && !this.cfg.look && !this.cfg.scans && this.excite < 0.3) {
         this.idleHeadTurn -= dt;
         if (this.idleHeadTurn <= 0) {
           this.idleHeadTurn = 2 + Math.random() * 4;

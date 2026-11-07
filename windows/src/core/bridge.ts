@@ -53,6 +53,10 @@ export const Bridge = {
   /** "Open terminal" → opens the folder in VS Code when `code` is on PATH. */
   openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
 
+  /** "Open <Agent>" → launches the agent's own desktop app at the project. */
+  openAgent: (agent: string, path: string | null) =>
+    call<boolean>("open_agent", { agent, path }),
+
   quit: () => call<void>("quit_app"),
 
   openSettingsWindow: () => call<void>("open_settings_window"),

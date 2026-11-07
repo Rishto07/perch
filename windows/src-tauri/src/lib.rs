@@ -60,6 +60,7 @@ pub fn run() {
             commands::settings::reposition,
             commands::misc::open_url,
             commands::misc::open_in_vscode,
+            commands::misc::open_agent,
             commands::settings::quit_app,
             commands::hooks::hooks_status,
             commands::hooks::hooks_preview,

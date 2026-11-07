@@ -113,8 +113,9 @@ export class Island {
         Sound.play("blip");
       },
       openTerminal: () => {
-        const cwd = State.focusTask?.sessionCwd ?? null;
-        void Bridge.openInVSCode(cwd);
+        const task = State.focusTask;
+        if (!task) return;
+        void Bridge.openAgent(task.id, task.sessionCwd ?? null);
       },
       // The ↗ button — same targets as openAgentTarget() on macOS.
       openTarget: () => {
@@ -128,8 +129,8 @@ export class Island {
           integration_notion: "https://notion.so",
           integration_calcom: "https://app.cal.com/bookings",
         };
-        // Agent pills (Claude, Codex, OpenCode, Zcode, generic) all open the
-        // session folder; service pills open their dashboards.
+        // Agent pills open their own desktop app at the session folder;
+        // service pills open their dashboards.
         if (
           task.id === "integration_claude" ||
           task.id === "integration_codex" ||
@@ -137,7 +138,7 @@ export class Island {
           task.id === "integration_zcode" ||
           task.id === "integration_generic"
         )
-          void Bridge.openInVSCode(task.sessionCwd ?? null);
+          void Bridge.openAgent(task.id, task.sessionCwd ?? null);
         else if (task.id === "integration_n8n") void Bridge.openN8n();
         else if (urls[task.id]) void Bridge.openUrl(urls[task.id]);
       },

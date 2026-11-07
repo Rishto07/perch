@@ -88,12 +88,20 @@ struct OverviewView: View {
         guard let task else { return }
         switch task.id {
         case "integration_claude":
-            let vscodeBundleId = "com.microsoft.VSCode"
-            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == vscodeBundleId }) {
-                app.activate(options: .activateIgnoringOtherApps)
+            // Claude's desktop app is VS Code — focus it if running, else launch it.
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.VSCode") {
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
             } else {
                 NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Visual Studio Code.app"))
             }
+        case "integration_codex":
+            openAgentApp(named: "Codex", path: task.sessionCwd)
+        case "integration_opencode":
+            openAgentApp(named: "OpenCode", path: task.sessionCwd)
+        case "integration_zcode":
+            openAgentApp(named: "Zcode", path: task.sessionCwd)
+        case "integration_generic":
+            openAgentApp(named: "Visual Studio Code", path: task.sessionCwd)
         case "integration_resend":
             NSWorkspace.shared.open(URL(string: "https://resend.com/emails")!)
         case "integration_vercel":
@@ -128,6 +136,29 @@ struct OverviewView: View {
                 #endif
             }
         }
+    }
+
+    /// Launch the agent's own desktop app at the project folder.
+    private func openAgentApp(named name: String, path _: String?) {
+        // Best known bundle ids; falls back to opening by app name.
+        let bundleIds: [String: String] = [
+            "Codex": "com.openai.codex",
+            "OpenCode": "com.opencode.app",
+            "Zcode": "com.zcode.app",
+            "Visual Studio Code": "com.microsoft.VSCode",
+        ]
+        if let id = bundleIds[name],
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+            return
+        }
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+            return
+        }
+        _ = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == name })
+            .map { $0.activate(options: .activateIgnoringOtherApps) }
+            .map { _ in }
     }
 }
 

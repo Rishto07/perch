@@ -9,9 +9,36 @@ interface MiniBot {
   engine: BotEngine;
   cssSize: number;
   taskId: string;
+  slot: HTMLElement;
+  hovered: boolean;
 }
 
 const live = new Map<HTMLCanvasElement, MiniBot>();
+
+// Elite mini-birds: track the real cursor across the island window.
+const mouse = { x: -9999, y: -9999, active: false };
+let mouseHooked = false;
+
+function hookMouse() {
+  if (mouseHooked) return;
+  mouseHooked = true;
+  window.addEventListener(
+    "mousemove",
+    (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    "mouseleave",
+    () => {
+      mouse.active = false;
+    },
+    { passive: true },
+  );
+}
 
 /**
  * Creates a mini Pip whose **body** is `bodySize` CSS pixels across.
@@ -49,7 +76,25 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
     engine.eyeOverrideUntil = Number.POSITIVE_INFINITY;
   }
 
-  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id });
+  hookMouse();
+  // Hover: excitement burst + happy eyes. Click: poke (squash + hearts).
+  slot.addEventListener("mouseenter", () => {
+    const mb = live.get(canvas);
+    if (mb) mb.hovered = true;
+    engine.exciteBurst();
+  });
+  slot.addEventListener("mouseleave", () => {
+    const mb = live.get(canvas);
+    if (mb) mb.hovered = false;
+    engine.exciteCalm();
+  });
+  slot.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    engine.poke();
+    // Let the pill's own click (setFocus) still run — this only adds the bird play.
+  });
+
+  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, slot, hovered: false });
   return slot;
 }
 
@@ -78,6 +123,22 @@ export function tickMiniBots(dt: number) {
   for (const mb of live.values()) {
     const ctx = mb.canvas.getContext("2d");
     if (!ctx) continue;
+    // Cursor-follow: eyes and head chase the mouse; proximity builds excitement.
+    if (mouse.active) {
+      const r = mb.canvas.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = mouse.x - cx;
+      const dy = mouse.y - cy;
+      mb.engine.lookX = Math.tanh(dx / 180);
+      mb.engine.lookY = -Math.tanh(dy / 140);
+      mb.engine.lastCursor = performance.now() / 1000;
+      const dist = Math.hypot(dx, dy);
+      const prox = Math.max(0, Math.min(1, 1 - dist / 260));
+      mb.engine.exciteTarget = mb.hovered ? 1 : prox * 0.7;
+    } else if (!mb.hovered) {
+      mb.engine.exciteTarget = 0;
+    }
     mb.engine.update(dt);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, mb.cssSize, mb.cssSize);
