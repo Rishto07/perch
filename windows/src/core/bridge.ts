@@ -48,18 +48,44 @@ export const Bridge = {
 
   reposition: () => call<void>("reposition"),
 
-  openUrl: (url: string) => call<void>("open_url", { url }),
+  openUrl: (url: string) => {
+    if (!IS_TAURI) {
+      // Browser preview: open for real so service buttons feel alive.
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        window.open(url, "_blank", "noopener");
+      }
+      return Promise.resolve(null);
+    }
+    return call<void>("open_url", { url });
+  },
 
   /** "Open terminal" → opens the folder in VS Code when `code` is on PATH. */
-  openInVSCode: (path: string | null) => call<boolean>("open_in_vscode", { path }),
+  openInVSCode: (path: string | null) => {
+    if (!IS_TAURI) {
+      console.info("[perch:browser] open_in_vscode", path);
+      return Promise.resolve(null as boolean | null);
+    }
+    return call<boolean>("open_in_vscode", { path });
+  },
 
   /** "Open <Agent>" → launches the agent's own desktop app at the project. */
-  openAgent: (agent: string, path: string | null) =>
-    call<boolean>("open_agent", { agent, path }),
+  openAgent: (agent: string, path: string | null) => {
+    if (!IS_TAURI) {
+      console.info("[perch:browser] open_agent", agent, path);
+      return Promise.resolve(null as boolean | null);
+    }
+    return call<boolean>("open_agent", { agent, path });
+  },
 
   quit: () => call<void>("quit_app"),
 
-  openSettingsWindow: () => call<void>("open_settings_window"),
+  openSettingsWindow: () => {
+    if (!IS_TAURI) {
+      console.info("[perch:browser] open_settings_window → in-island settings");
+      return Promise.resolve(null);
+    }
+    return call<void>("open_settings_window");
+  },
 
   /** Writes to %LOCALAPPDATA%\Perch\perch.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
@@ -106,9 +132,21 @@ export const Bridge = {
   secretClear: (key: string) => callOrThrow<void>("secret_clear", { key }),
 
   // ── Integrations ──────────────────────────────────────────────────────────
-  refreshIntegration: (id: string) => call<void>("refresh_integration", { id }),
+  refreshIntegration: (id: string) => {
+    if (!IS_TAURI) {
+      console.info("[perch:browser] refresh_integration", id);
+      return Promise.resolve(null);
+    }
+    return call<void>("refresh_integration", { id });
+  },
   /** Opens the configured n8n instance in the browser. */
-  openN8n: () => call<void>("open_n8n"),
+  openN8n: () => {
+    if (!IS_TAURI) {
+      console.info("[perch:browser] open_n8n → not in desktop app");
+      return Promise.resolve(null);
+    }
+    return call<void>("open_n8n");
+  },
 
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),

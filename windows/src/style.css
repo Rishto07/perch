@@ -295,6 +295,23 @@ body {
   transform: scale(0.94);
 }
 
+.btn:focus-visible,
+.link-btn:focus-visible,
+.pill:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.link-btn:active {
+  transform: scale(0.97);
+  filter: brightness(1.2);
+}
+
 .btn.primary {
   background: var(--ink);
   color: #0b0c0e;

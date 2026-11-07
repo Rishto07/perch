@@ -378,7 +378,7 @@ function buildError(actions: ViewActions): ViewHost {
   const detail = h("div", { class: "detail" });
   const row = h("div", { class: "actions" },
     btn("Retry", "primary", () => actions.setView(State.defaultView())),
-    btn("Open in n8n", "secondary", () => actions.openUrl("")),
+    btn("Open in n8n", "secondary", () => actions.openTarget()),
   );
   const el = h("div", { class: "view" }, card("red", stack(116, 16, who, title, detail, row)));
   return {

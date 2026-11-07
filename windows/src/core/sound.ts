@@ -21,6 +21,8 @@ class SoundEngine {
   private buffers = new Map<string, AudioBuffer>();
   private loading: Promise<void> | null = null;
   private idleTimer: number | null = null;
+  /** Global anti-double: one sound per action, no echoes. */
+  private lastPlayAt = 0;
 
   /** Creates the context and decodes every WAV. Safe to call more than once. */
   preload(): Promise<void> {
@@ -86,6 +88,11 @@ class SoundEngine {
 
   play(name: SoundName | string) {
     if (!this.enabled) return;
+    const now = performance.now();
+    // Kill doubles: same sound re-fired quickly (focus + hover) or a second
+    // layer within 90 ms (slap + annoyed) is only ever one voice.
+    if (now - this.lastPlayAt < 90) return;
+    this.lastPlayAt = now;
     const ctx = this.ctx;
     const master = this.master;
     const buf = this.buffers.get(name);

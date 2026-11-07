@@ -105,6 +105,11 @@ export class Island {
   // ── DOM ─────────────────────────────────────────────────────────────────────
 
   private build() {
+    const showLaunchNote = (what: string) => {
+      if (IS_TAURI) return;
+      State.noteMessage = `Not in the Perch desktop app — can't launch ${what} from the browser preview.`;
+      this.setView("note");
+    };
     const actions: ViewActions = {
       setView: (v) => this.setView(v),
       collapse: () => this.collapse(),
@@ -115,7 +120,13 @@ export class Island {
       openTerminal: () => {
         const task = State.focusTask;
         if (!task) return;
-        void Bridge.openAgent(task.id, task.sessionCwd ?? null);
+        void Bridge.openAgent(task.id, task.sessionCwd ?? null).then((ok) => {
+          if (ok == null) showLaunchNote(task.name);
+          else if (!ok) {
+            State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+            this.setView("note");
+          }
+        });
       },
       // The ↗ button — same targets as openAgentTarget() on macOS.
       openTarget: () => {
@@ -137,16 +148,28 @@ export class Island {
           task.id === "integration_opencode" ||
           task.id === "integration_zcode" ||
           task.id === "integration_generic"
-        )
-          void Bridge.openAgent(task.id, task.sessionCwd ?? null);
-        else if (task.id === "integration_n8n") void Bridge.openN8n();
+        ) {
+          void Bridge.openAgent(task.id, task.sessionCwd ?? null).then((ok) => {
+            if (ok == null) showLaunchNote(task.name);
+            else if (!ok) {
+              State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+              this.setView("note");
+            }
+          });
+        } else if (task.id === "integration_n8n") void Bridge.openN8n();
         else if (urls[task.id]) void Bridge.openUrl(urls[task.id]);
       },
       openAgentTask: (id) => {
         const task = State.tasks.find((t) => t.id === id) ?? State.focusTask;
         if (!task) return;
         State.setFocus(id);
-        void Bridge.openAgent(id, task.sessionCwd ?? null);
+        void Bridge.openAgent(id, task.sessionCwd ?? null).then((ok) => {
+          if (ok == null) showLaunchNote(task.name);
+          else if (!ok) {
+            State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+            this.setView("note");
+          }
+        });
       },
       openUrl: (url) => {
         if (url) void Bridge.openUrl(url);
@@ -183,7 +206,14 @@ export class Island {
         void Bridge.saveSettings(State.settings);
         State.notify();
       },
-      openSettingsWindow: () => void Bridge.openSettingsWindow(),
+      openSettingsWindow: () => {
+        if (!IS_TAURI) {
+          // No separate window in the browser — stay in-island.
+          this.setView("settings");
+          return;
+        }
+        void Bridge.openSettingsWindow();
+      },
       blip: () => Sound.play("blip"),
     };
 

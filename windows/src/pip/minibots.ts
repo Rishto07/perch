@@ -86,23 +86,21 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
   }
 
   hookMouse();
-  // Hover: excitement burst + happy eyes. Click: poke (squash + hearts).
+  // Hover: excitement burst + happy eyes (silent — the pill's click blip is
+  // the one sound per action; see Sound.play throttle).
   slot.addEventListener("mouseenter", () => {
     const mb = live.get(canvas);
     if (mb) mb.hovered = true;
     engine.exciteBurst();
-    Sound.play("blip");
   });
   slot.addEventListener("mouseleave", () => {
     const mb = live.get(canvas);
     if (mb) mb.hovered = false;
     engine.exciteCalm();
   });
-  slot.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
+  slot.addEventListener("mousedown", () => {
     const mb = live.get(canvas);
     engine.poke();
-    Sound.play("work");
     // Easter egg: 3 rapid pokes → dizzy spin, like Pip's slap.
     if (mb) {
       const t = performance.now() / 1000;
@@ -116,7 +114,8 @@ export function createMiniBot(task: AgentTask, bodySize: number): HTMLElement {
         Sound.play("dizzy");
       }
     }
-    // Let the pill's own click (setFocus) still run — this only adds the bird play.
+    // No stopPropagation: the island's own mousedown must still see the click
+    // so lastActivity updates and the island stays open.
   });
 
   slot.title = `${task.name} — ${task.state} · double-click to open`;

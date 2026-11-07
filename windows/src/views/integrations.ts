@@ -93,29 +93,40 @@ function idleCard(task: AgentTask, openSettings: () => void): HTMLElement {
     });
     actions.append(copyBtn);
   }
+  // Visible "tried" feedback so a dead click never looks broken.
+  const openBtn = (label: string, color: string, run: () => Promise<unknown>): HTMLElement => {
+    const b = h("button", { class: "link-btn", style: `color:${color}b3`, text: label });
+    b.addEventListener("click", async () => {
+      const orig = label;
+      b.textContent = "…";
+      try {
+        const ok = await run();
+        if (ok == null) {
+          b.textContent = "Desktop app only";
+          setTimeout(() => { b.textContent = orig; }, 1600);
+        } else if (!ok) {
+          b.textContent = "Not found";
+          setTimeout(() => { b.textContent = orig; }, 1600);
+        } else {
+          b.textContent = "Opened ✓";
+          setTimeout(() => { b.textContent = orig; }, 1200);
+        }
+      } catch {
+        b.textContent = orig;
+      }
+    });
+    return b;
+  };
+
   if (task.id === "integration_claude") {
-    actions.append(
-      h("button", {
-        class: "link-btn",
-        style: `color:${task.color}b3`,
-        text: "Open Visual Studio Code",
-        onclick: () => void Bridge.openAgent(task.id, task.sessionCwd ?? null),
-      }),
-    );
+    actions.append(openBtn("Open Visual Studio Code", task.color, () => Bridge.openAgent(task.id, task.sessionCwd ?? null)));
   } else if (AGENT_TASK_IDS.has(task.id)) {
     const agentName =
       task.id === "integration_codex" ? "Open Codex"
       : task.id === "integration_opencode" ? "Open OpenCode"
       : task.id === "integration_zcode" ? "Open Zcode"
       : "Open project";
-    actions.append(
-      h("button", {
-        class: "link-btn",
-        style: `color:${task.color}b3`,
-        text: agentName,
-        onclick: () => void Bridge.openAgent(task.id, task.sessionCwd ?? null),
-      }),
-    );
+    actions.append(openBtn(agentName, task.color, () => Bridge.openAgent(task.id, task.sessionCwd ?? null)));
   } else if (task.id === "integration_n8n") {
     actions.append(
       h("button", {
