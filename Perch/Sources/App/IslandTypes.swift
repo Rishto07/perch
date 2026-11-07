@@ -53,7 +53,9 @@ struct AgentTask: Identifiable, Equatable {
     var steps: [String]
     var source: AgentSource
     var isIntegration: Bool = false  // true for persistent integration pills
-    var pillBadge: PillBadge? = nil  // alert badge shown on the agent token when not focused
+    var emote: BotEmote? = nil
+    var miniEye: EyeShape? = nil
+    var pillBadge: PillBadge? = nil  // alert badge shown on pill when not focused
     var sessionCwd: String?  = nil  // last known working directory (Claude Code sessions)
 }
 

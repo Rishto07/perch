@@ -39,4 +39,6 @@ struct IslandRestingLayout {
     var botCenterY: CGFloat { height / 2 }
     var railScale: CGFloat { min(1, max(0, height - 4) / 28) }
     var railCenterX: CGFloat { width - 34 }
+    var miniGridScale: CGFloat { min(1, max(0, height - 4) / 28) }
+    var miniGridCenterX: CGFloat { width - 40 }
 }

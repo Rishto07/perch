@@ -76,9 +76,12 @@ struct OverviewView: View {
             }
             .frame(width: 322)
 
-            // Right card: the agent rail
+            // Right card: the agent rail with mini-bot pills below
             CardBackground(wash: nil) {
-                AgentRailView(state: state)
+                VStack(spacing: 4) {
+                    AgentRailView(state: state)
+                    AgentPillsView(state: state)
+                }
             }
         }
         .onChange(of: state.focusId) { _, _ in showingN8nDetail = false }

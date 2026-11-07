@@ -8,6 +8,7 @@ import { Ticker } from "./ticker";
 import { State, type AgentTask } from "../core/state";
 import { washRGBA, type IslandViewName, type Wash } from "../core/layout";
 import { createToken, syncToken } from "../pip/rail";
+import { createMiniBot, pruneMiniBots } from "../pip/minibots";
 import { buildPrompt } from "./chat";
 import { buildChoose, buildUpload, buildUploading } from "./upload";
 import { renderIntegrationCard, type IntegrationCardHooks } from "./integrations";
@@ -128,7 +129,10 @@ function buildOverview(actions: ViewActions): ViewHost {
   );
   const left = card(null, leftBody, jump);
   const rail = h("div", { class: "rail" });
-  const right = card(null, rail);
+  // Mini-bot pills sit below the rail so both bird systems are visible.
+  const pills = h("div", { class: "pills" });
+  const rightBody = h("div", { class: "right-stack" }, rail, pills);
+  const right = card(null, rightBody);
 
   const el = h("div", { class: "view overview" },
     h("div", { class: "left" }, left),
@@ -136,6 +140,7 @@ function buildOverview(actions: ViewActions): ViewHost {
   );
 
   let railKey = "";
+  let pillIds = "";
   let detailOpen = false;
   let lastFocus: string | null = null;
   let mode: "ticker" | "card" | null = null;
@@ -242,8 +247,66 @@ function buildOverview(actions: ViewActions): ViewHost {
         const token = rail.children[i] as HTMLElement | undefined;
         if (token) syncToken(token, t);
       }
+
+      const pillKey = others.map((t) => `${t.id}:${t.pillBadge ?? ""}`).join("|");
+      if (pillKey !== pillIds) {
+        pillIds = pillKey;
+        clear(pills);
+        for (const t of others) pills.append(buildPill(t, actions));
+        pruneMiniBots();
+      }
     },
   };
+}
+
+function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
+  // Agent pills keep their agent label (same as the VS Code pill); the project
+  // name lives in the session card.
+  const label =
+    task.id === "integration_claude" ? "VS Code"
+    : task.id === "integration_codex" ? "Codex"
+    : task.id === "integration_opencode" ? "OpenCode"
+    : task.id === "integration_zcode" ? "Zcode"
+    : task.id === "integration_generic" ? "Agent"
+    : task.name;
+  const canvas = createMiniBot(task, 24);
+  const pill = h(
+    "div",
+    { class: "pill", onclick: () => actions.setFocus(task.id) },
+    canvas,
+    h("span", { class: "lbl", text: label }),
+  );
+  pill.style.borderColor = `${task.color}24`;
+  pill.addEventListener("mouseenter", () => {
+    pill.style.background = `${task.color}2e`;
+    pill.style.borderColor = `${task.color}8c`;
+    pill.style.boxShadow = `0 2px 10px ${task.color}59`;
+    (pill.querySelector(".lbl") as HTMLElement).style.color = lighten(task.color, 0.3);
+  });
+  pill.addEventListener("mouseleave", () => {
+    pill.style.background = "";
+    pill.style.borderColor = `${task.color}24`;
+    pill.style.boxShadow = "";
+    (pill.querySelector(".lbl") as HTMLElement).style.color = "";
+  });
+
+  if (task.pillBadge) {
+    const colors = { approval: "#F5A524", finished: "#22C55E", error: "#F4505E" } as const;
+    const icons = { approval: ICONS.bang, finished: ICONS.check, error: ICONS.xmark } as const;
+    const inner = h("i", { style: `background:${colors[task.pillBadge]}` }, svg(icons[task.pillBadge], 6, { stroke: task.pillBadge === "finished" ? 3 : 0 }));
+    const badge = h("div", { class: "pill-badge" }, inner);
+    badge.style.boxShadow = `0 0 4px ${colors[task.pillBadge]}99`;
+    pill.append(badge);
+  }
+  return pill;
+}
+
+function lighten(hex: string, amount: number): string {
+  const v = parseInt(hex.replace("#", ""), 16);
+  const c = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map((x) =>
+    Math.min(255, Math.round(x + amount * 255)),
+  );
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
 /** Human label for the agent behind a pill (mirrors macOS agentLabel). */

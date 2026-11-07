@@ -118,6 +118,48 @@ struct BotCanvasView: View {
     }
 }
 
+/// Mini bot canvas (for agent pills/column)
+struct MiniBotCanvasView: View {
+    let task: AgentTask
+    @StateObject private var engine: BotEngine
+
+    init(task: AgentTask) {
+        self.task = task
+        _engine = StateObject(wrappedValue: {
+            let e = BotEngine()
+            e.isMini = true
+            e.bodyColor = cgColorFromHex(task.color)
+            return e
+        }())
+    }
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                let dt = min(0.05, now - engine.lastTime)
+                engine.update(dt: dt)
+                engine.draw(context: context, size: size)
+            }
+        }
+        .onChange(of: task.state) { _, newState in
+            engine.setState(newState)
+        }
+        .onAppear {
+            engine.setState(task.state, force: true)
+            if let emote = task.emote {
+                engine.setPermanentEmote(emote)
+            }
+            // Direct eye override takes priority (e.g. .wide eyes for Research)
+            if let eye = task.miniEye {
+                engine.permanentEye = eye
+                engine.eyeOverride = eye
+                engine.eyeOverrideUntil = .greatestFiniteMagnitude
+            }
+        }
+    }
+}
+
 // MARK: - CGColor from hex string
 
 func cgColorFromHex(_ hex: String) -> CGColor? {

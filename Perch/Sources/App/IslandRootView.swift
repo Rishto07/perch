@@ -112,6 +112,10 @@ struct IslandContainer: View {
                         .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).railScale)
                         .position(x: islandWidth - 34, y: islandHeight / 2)
                         .transition(.opacity)
+                    CompactMiniGrid(state: state)
+                        .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).miniGridScale)
+                        .position(x: islandWidth - 34 - 34, y: islandHeight / 2)
+                        .transition(.opacity)
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: state.mode == .compact)
@@ -559,6 +563,28 @@ struct CompactAgentRail: View {
             }
         }
         .frame(width: 46, height: 12)
+    }
+}
+
+// MARK: - Compact mini pip grid (2×2 to the left of the rail)
+
+struct CompactMiniGrid: View {
+    @ObservedObject var state: AppState
+
+    private var others: [AgentTask] {
+        Array(state.tasks.filter { $0.id != state.focusId }.prefix(4))
+    }
+
+    var body: some View {
+        let cols = [GridItem(.fixed(12), spacing: 4), GridItem(.fixed(12), spacing: 4)]
+        LazyVGrid(columns: cols, spacing: 4) {
+            ForEach(others) { task in
+                MiniBotCanvasView(task: task)
+                    .frame(width: 12 / 0.6, height: 12 / 0.6)
+                    .frame(width: 12, height: 12, alignment: .center)
+            }
+        }
+        .frame(width: 28, height: 28)
     }
 }
 
