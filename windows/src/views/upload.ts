@@ -30,17 +30,76 @@ function dashedFrame(): SVGSVGElement {
 export function buildUpload(): ViewHost {
   const frame = dashedFrame();
   const title = h("div", { class: "drop-title", text: "Drop your files here" });
+  const hint = h("div", {
+    class: "drop-hint",
+    text: "or click anywhere in the box to browse",
+    style: "font-size:10.5px;color:#6b7079;margin-top:2px",
+  });
+  // File picker fallback so the zone works everywhere (browser preview has no
+  // Tauri OLE drag-drop; some users simply prefer clicking).
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = true;
+  input.style.display = "none";
+
+  const emitFiles = (files: FileList | File[]) => {
+    if (!files.length) return;
+    const ev = new CustomEvent<File[]>("perch:browser-files", {
+      detail: Array.from(files as ArrayLike<File>),
+    });
+    window.dispatchEvent(ev);
+  };
+
+  const setAccept = (kind: string) => {
+    input.accept =
+      kind === "PDF" ? "application/pdf"
+      : kind === "Images" ? "image/*"
+      : kind === "Code" ? "text/*,.ts,.tsx,.js,.jsx,.rs,.swift,.go,.py,.java,.cs,.cpp,.h,.html,.css,.json,.toml,.yaml,.yml,.md"
+      : kind === "Docs" ? ".txt,.md,.doc,.docx,.odt,.rtf,.xls,.xlsx,.ppt,.pptx,.csv"
+      : "";
+    input.click();
+  };
+
   const tags = h(
     "div",
     { class: "drop-tags" },
-    ...["PDF", "Images", "Code", "Docs"].map((t) => h("span", { text: t })),
+    ...["PDF", "Images", "Code", "Docs"].map((t) => {
+      const tag = h("span", { text: t, role: "button" });
+      tag.style.cursor = "pointer";
+      tag.title = `Pick a ${t.toLowerCase()} file`;
+      tag.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setAccept(t);
+      });
+      return tag;
+    }),
   );
   const card = h(
     "div",
     { class: "card drop-card" },
     frame,
-    h("div", { class: "drop-body" }, title, tags),
+    h("div", { class: "drop-body" }, title, hint, tags),
   );
+  input.addEventListener("change", () => {
+    if (input.files?.length) emitFiles(input.files);
+    input.value = "";
+  });
+  card.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest(".drop-tags")) return;
+    setAccept("");
+  });
+  for (const ev of ["dragover", "dragenter", "dragleave", "drop"] as const) {
+    card.addEventListener(ev, (e) => {
+      e.preventDefault();
+      if (ev === "dragover" || ev === "dragenter") card.classList.add("over");
+      if (ev === "dragleave" || ev === "drop") card.classList.remove("over");
+      if (ev === "drop") {
+        const dt = (e as DragEvent).dataTransfer;
+        if (dt?.files?.length) emitFiles(dt.files);
+      }
+    });
+  }
+  card.append(input);
   const el = h("div", { class: "view" }, card);
 
   return {

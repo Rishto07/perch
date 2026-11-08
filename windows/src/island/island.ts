@@ -105,6 +105,16 @@ export class Island {
   // ── DOM ─────────────────────────────────────────────────────────────────────
 
   private build() {
+    const installHint = (id: string, name: string): string => {
+      switch (id) {
+        case "integration_claude": return `${name} not found — install VS Code (this pill opens VS Code).`;
+        case "integration_generic": return `Claude App not found — install Claude Desktop, or the Claude CLI (npm i -g @anthropic-ai/claude-code).`;
+        case "integration_codex": return `Codex not found — install the CLI (npm i -g @openai/codex) or the Codex desktop app, then try again.`;
+        case "integration_opencode": return `OpenCode not found — install it (npm i -g opencode-ai) and try again.`;
+        case "integration_zcode": return `Zcode not found — install Zcode and make sure 'zcode' is on PATH.`;
+        default: return `${name} not found — install it and try again.`;
+      }
+    };
     const showLaunchNote = (what: string) => {
       if (IS_TAURI) return;
       State.noteMessage = `Not in the Perch desktop app — can't launch ${what} from the browser preview.`;
@@ -123,7 +133,7 @@ export class Island {
         void Bridge.openAgent(task.id, task.sessionCwd ?? null).then((ok) => {
           if (ok == null) showLaunchNote(task.name);
           else if (!ok) {
-            State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+            State.noteMessage = installHint(task.id, task.name);
             this.setView("note");
           }
         });
@@ -152,7 +162,7 @@ export class Island {
           void Bridge.openAgent(task.id, task.sessionCwd ?? null).then((ok) => {
             if (ok == null) showLaunchNote(task.name);
             else if (!ok) {
-              State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+              State.noteMessage = installHint(task.id, task.name);
               this.setView("note");
             }
           });
@@ -166,7 +176,7 @@ export class Island {
         void Bridge.openAgent(id, task.sessionCwd ?? null).then((ok) => {
           if (ok == null) showLaunchNote(task.name);
           else if (!ok) {
-            State.noteMessage = `${task.name} not found — install it or open VS Code instead.`;
+            State.noteMessage = installHint(id, task.name);
             this.setView("note");
           }
         });
@@ -599,11 +609,46 @@ export class Island {
 
     void onDragDrop((e) => this.onDragDrop(e));
 
+    // Browser fallback for the upload zone (Tauri OLE drag-drop doesn't exist
+    // in the Vite preview): picker + HTML5 drop dispatch these files here.
+    window.addEventListener("perch:browser-files", (e) => {
+      if (State.paused) return;
+      const files = (e as CustomEvent).detail as File[] | undefined;
+      if (!files?.length) return;
+      const f = files[0];
+      State.fileDragOver = false;
+      this.engine.animateMorph(1);
+      UploadSeq.enterZone(State.mouseInIsland.x, State.mouseInIsland.y);
+      this.alert("upload");
+      // No ingest relay in the browser: keep the file as an object URL so the
+      // eat → uploading → choose flow still runs end-to-end (preview only).
+      this.swallowBrowserFile(f);
+    });
+
     // Outside Tauri (plain browser) drive the cursor from DOM events so the
     // island can be inspected with `npm run dev`.
     if (!IS_TAURI) {
       window.addEventListener("mousemove", (e) => this.onCursor(e.clientX, e.clientY));
     }
+  }
+
+  /** Browser-only swallow: the file bytes live in a tab URL, no Rust inbox. */
+  private swallowBrowserFile(file: File) {
+    const name = file.name || "file";
+    const path = URL.createObjectURL(file);
+    State.droppedFile = { name, path };
+    State.promptContext = { kind: "file", name, path };
+    State.chatHistory = [];
+    UploadSeq.performDrop(State.uploadDuration);
+    this.uploadTens = 0;
+    this.uploadDone = false;
+    this.engine.gulp();
+    Sound.play("approve");
+    this.engine.triggerEmote("happy");
+    this.engine.animateMorph(0);
+    State.uploadProgress = 0;
+    this.setView("uploading");
+    this.ensureRunning();
   }
 
   /** Cursor in window-logical coordinates. */

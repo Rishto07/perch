@@ -42,7 +42,7 @@ fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
         }
     };
     match stem {
-        "code" | "claude" | "claude-code" => {
+        "code" => {
             out.push(std::path::PathBuf::from(
                 r"C:\Program Files\Microsoft VS Code\Code.exe",
             ));
@@ -51,12 +51,16 @@ fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
                 r"Programs\Microsoft VS Code\Code.exe",
                 &mut out,
             );
-            // Claude Desktop (separate from VS Code).
+        }
+        // Claude Desktop only — never VS Code. The generic pill ("Claude
+        // App") must not masquerade as VS Code when Claude isn't installed.
+        "claude" | "claude-desktop" | "claude-code" => {
             push(local.as_deref(), r"AnthropicClaude\Claude.exe", &mut out);
             push(appdata.as_deref(), r"Claude\Claude.exe", &mut out);
             out.push(std::path::PathBuf::from(
                 r"C:\Program Files\Claude\Claude.exe",
             ));
+            push(local.as_deref(), r"Programs\Claude\Claude.exe", &mut out);
         }
         "codex" => {
             push(local.as_deref(), r"Programs\Codex\Codex.exe", &mut out);
@@ -162,9 +166,16 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
         _ => {}
     }
     if binding == "integration_generic" || binding == "generic" {
-        // Claude App: try Claude Desktop first (all Claude known paths),
-        // then VS Code so the click still lands somewhere useful.
+        // Claude App: the Claude CLI first (TUI via wt), then Claude Desktop —
+        // and if neither exists, report not found. Never silently open VS Code.
         let dir = launch_dir(path.clone());
+        if let Some(exe) = find_on_path("claude") {
+            if spawn_agent_cli(&exe, dir.as_deref(), "claude") {
+                log::line("open_agent: launched generic (Claude App) CLI via PATH");
+                return true;
+            }
+            log::line("open_agent: claude CLI on PATH failed to spawn");
+        }
         for candidate in known_desktop_paths("claude") {
             if candidate.is_file() {
                 let mut cmd = Command::new(candidate.clone());
@@ -182,7 +193,8 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
                 }
             }
         }
-        return open_in_vscode(path);
+        log::line("open_agent: Claude app not found (no claude CLI, no Claude Desktop)");
+        return false;
     }
     let stem: &str = match binding.as_str() {
         "integration_codex" | "codex" => "codex",
@@ -269,8 +281,28 @@ fn spawn_agent_cli(exe: &std::path::Path, dir: Option<&str>, stem: &str) -> bool
 /// spawning `code.cmd` directly is safe.
 pub(crate) fn find_on_path(stem: &str) -> Option<std::path::PathBuf> {
     let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
-    let dirs = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&dirs) {
+    let mut dirs: Vec<std::path::PathBuf> = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default();
+    // Extra roots where CLIs land without entering PATH.
+    if let Some(roaming) = std::env::var_os("APPDATA") {
+        dirs.push(std::path::PathBuf::from(roaming).join("npm"));
+    }
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        dirs.push(
+            std::path::PathBuf::from(local.clone())
+                .join("Microsoft")
+                .join("WinGet")
+                .join("Packages"),
+        );
+        dirs.push(std::path::PathBuf::from(local).join("Programs"));
+    }
+    if let Some(home) = std::env::var_os("USERPROFILE") {
+        let h = std::path::PathBuf::from(home);
+        dirs.push(h.join(".local").join("bin"));
+        dirs.push(h.join(".cargo").join("bin"));
+    }
+    for dir in dirs {
         for ext in exts.split(';').filter(|e| !e.is_empty()) {
             let candidate = dir.join(format!("{stem}{}", ext.to_lowercase()));
             if candidate.is_file() {
