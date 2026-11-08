@@ -247,8 +247,7 @@ fn spawn_agent_cli(exe: &std::path::Path, dir: Option<&str>, stem: &str) -> bool
         let mut cmd = Command::new(wt);
         cmd.arg("-d");
         cmd.arg(dir.unwrap_or("."));
-        cmd.arg("-w");
-        cmd.arg("0");
+        cmd.arg("--");
         cmd.arg(exe);
         if let Some(p) = dir {
             cmd.arg(p);
