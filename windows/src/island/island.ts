@@ -381,6 +381,13 @@ export class Island {
     this.fsm.forcePetit();
   }
 
+  /** Ctrl+H: hide the island to the wake strip now (minimise), even when pinned. */
+  hideNow() {
+    State.isPinned = false;
+    this.fsm.pinned = false;
+    this.fsm.forceHidden();
+  }
+
   /** Alert from the hook server: open on this view. Pinned alerts never auto-close. */
   alert(view: IslandViewName) {
     this.fsm.pinned = State.isPinned;
@@ -604,6 +611,14 @@ export class Island {
 
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && State.mode === "expanded" && !State.isPinned) this.collapse();
+      // Ctrl+H hides the island to the wake strip immediately (minimise).
+      if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        // Don't steal it while typing in the chat input.
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        this.hideNow();
+      }
       State.lastActivity = performance.now();
     });
 
