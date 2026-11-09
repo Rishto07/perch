@@ -136,6 +136,8 @@ class AppState {
 
   tasks: AgentTask[] = [];
   focusId: string | null = null;
+  /** Last time the user picked a pill by click (respects the user's choice). */
+  lastUserFocusAt = 0;
 
   stateOverride: BotStateName | null = null;
 

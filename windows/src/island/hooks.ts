@@ -40,6 +40,38 @@ function defaultNameFor(id: string): string {
 /** Clears the approval card if no decision was made before the hook gave up. */
 let pendingTimeout: number | null = null;
 
+/** Smart auto-focus bookkeeping: don't flap between two working agents. */
+let lastAutoFocusAt = 0;
+const AUTO_FOCUS_COOLDOWN_MS = 5000;
+const USER_PICK_GRACE_MS = 15000;
+
+/**
+ * Should hook activity from `taskId` pull Perch's focus to that agent?
+ * "strong" = a fresh session or a new prompt (the user is actively on that
+ * agent right now). "weak" = tool activity (someone is working). Guards keep
+ * the island from yanking the view mid-typing, mid-approval, or mid-upload.
+ */
+function shouldAutoFocus(taskId: string, strength: "strong" | "weak"): boolean {
+  if (State.focusId === taskId) return false;
+  if (State.paused || State.pendingApproval) return false;
+  if (State.stateOverride) return false; // dizzy/confused overlay owns the view
+  if (State.view === "prompt" || State.view === "upload" || State.view === "uploading" || State.view === "choose") return false;
+  const now = performance.now();
+  // Auto-switch at most once per cooldown window (weak signals only; strong
+  // signals still switch but at most every 2 s).
+  const cooldown = strength === "strong" ? 2000 : AUTO_FOCUS_COOLDOWN_MS;
+  if (now - lastAutoFocusAt < cooldown) return false;
+  // Respect the user's own pill picks for a grace period (weak signals only).
+  if (strength === "weak" && now - State.lastUserFocusAt < USER_PICK_GRACE_MS) return false;
+  return true;
+}
+
+/** Focus the active agent + surface it. Call only when shouldAutoFocus passed. */
+function autoFocus(taskId: string) {
+  lastAutoFocusAt = performance.now();
+  State.setFocus(taskId);
+}
+
 interface HookPayload {
   hook_event_name?: string;
   request_id?: string;
@@ -178,12 +210,14 @@ function handleHook(island: Island, payload: HookPayload) {
   switch (name) {
     case "SessionStart":
       upsert(taskId, projectName, cwd);
+      if (shouldAutoFocus(taskId, "strong")) autoFocus(taskId);
       surface("overview", false);
       Sound.play("work");
       break;
 
     case "UserPromptSubmit": {
       upsert(taskId, projectName, cwd);
+      if (shouldAutoFocus(taskId, "strong")) autoFocus(taskId);
       State.updateTask(taskId, "thinking");
       // The field is `prompt`; reading `message` meant this step was always blank.
       const asked = payload.prompt ?? payload.message;
@@ -194,6 +228,7 @@ function handleHook(island: Island, payload: HookPayload) {
 
     case "PreToolUse": {
       upsert(taskId, projectName, cwd);
+      if (shouldAutoFocus(taskId, "weak")) autoFocus(taskId);
       State.updateTask(taskId, "working");
       const tool = payload.tool_name ?? "Tool";
       State.appendStep(taskId, stepLabel(tool, payload.tool_input ?? {}));

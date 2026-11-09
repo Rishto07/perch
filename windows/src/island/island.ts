@@ -125,6 +125,7 @@ export class Island {
       collapse: () => this.collapse(),
       setFocus: (id) => {
         State.setFocus(id);
+        State.lastUserFocusAt = performance.now();
         Sound.play("blip");
       },
       openTerminal: () => {
@@ -173,6 +174,7 @@ export class Island {
         const task = State.tasks.find((t) => t.id === id) ?? State.focusTask;
         if (!task) return;
         State.setFocus(id);
+        State.lastUserFocusAt = performance.now();
         void Bridge.openAgent(id, task.sessionCwd ?? null).then((ok) => {
           if (ok == null) showLaunchNote(task.name);
           else if (!ok) {
