@@ -109,7 +109,7 @@ export class Island {
       switch (id) {
         case "integration_claude": return `${name} not found — install VS Code (this pill opens VS Code).`;
         case "integration_generic": return `Claude App not found — install Claude Desktop, or the Claude CLI (npm i -g @anthropic-ai/claude-code).`;
-        case "integration_codex": return `Codex not found — install the CLI (npm i -g @openai/codex) or the Codex desktop app, then try again.`;
+        case "integration_codex": return `ChatGPT not found — install the ChatGPT desktop app, then try again.`;
         case "integration_opencode": return `OpenCode not found — install it (npm i -g opencode-ai) and try again.`;
         case "integration_zcode": return `Zcode not found — install Zcode and make sure 'zcode' is on PATH.`;
         default: return `${name} not found — install it and try again.`;
