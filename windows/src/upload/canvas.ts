@@ -8,7 +8,7 @@
 import { State } from "../core/state";
 import {
   USC, eIn, eInOut, eOut, lerp, progressAt,
-  type UploadEyeShape, type UploadFrame,
+  type UploadFrame,
 } from "./sequence";
 
 const FONT = 'system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif';
@@ -18,26 +18,6 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   const rad = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, rad);
-}
-
-/** Superellipse body — port of usBodyPath(m, R). */
-function bodyPath(ctx: CanvasRenderingContext2D, m: number, R: number): { rx: number; ry: number } {
-  const mc = Math.max(0, Math.min(m, 1));
-  const n = 2.15 + (5.5 - 2.15) * mc;
-  const rx = R * (1.04 - 0.04 * mc);
-  const ry = R * (0.97 - 0.03 * mc);
-  ctx.beginPath();
-  for (let i = 0; i <= 96; i++) {
-    const a = (i / 96) * Math.PI * 2;
-    const ca = Math.cos(a);
-    const sa = Math.sin(a);
-    const px = rx * Math.sign(ca) * Math.pow(Math.abs(ca), 2 / n);
-    const py = ry * Math.sign(sa) * Math.pow(Math.abs(sa), 2 / n);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  return { rx, ry };
 }
 
 function text(
@@ -299,79 +279,123 @@ export class UploadCanvas {
     ctx.rotate(f.tilt);
     ctx.scale(f.sx, f.sy);
 
-    const { rx, ry } = bodyPath(ctx, f.morph, R);
+    // Bird body — same front-facing bird as the island Pip (engine.ts drawBird),
+    // morphing into a rounded "box" as it swallows. The white square in the
+    // old screenshots was the pre-bird squircle; the bird is the brand now.
+    const bodyR = R * 0.85;
+    const bw = bodyR * (1.08 - 0.08 * mc);
+    const bh = bodyR * (1.15 - 0.15 * mc);
 
-    // Body.
-    const bg = ctx.createLinearGradient(rx * 0.7, -ry * 0.9, -rx * 0.8, ry * 0.9);
-    bg.addColorStop(0, "#EDEDEF");
-    bg.addColorStop(1, "#C4C5CA");
-    ctx.fillStyle = bg;
-    ctx.fill();
-
-    // Edge shadow.
-    const sg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3);
-    sg.addColorStop(0, "rgba(0,0,0,0)");
-    sg.addColorStop(0.62, "rgba(0,0,0,0)");
-    sg.addColorStop(1, "rgba(0,0,0,0.12)");
-    ctx.fillStyle = sg;
-    ctx.fill();
-
-    // The body path is reused as a clip for everything drawn inside it.
-    ctx.save();
-    bodyPath(ctx, f.morph, R);
-    ctx.clip();
-
-    // Top rim, once Pip is box-shaped enough to have one.
-    if (mc > 0.3) {
-      const a = Math.max(0, Math.min(1, (mc - 0.3) / 0.7));
+    // Feet.
+    ctx.fillStyle = "#2C2C2C";
+    for (const sd of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(-rx * 0.72, -ry + 0.9);
-      ctx.lineTo(rx * 0.72, -ry + 0.9);
-      ctx.strokeStyle = `rgba(255,255,255,${0.6 * a})`;
-      ctx.lineWidth = 1.2;
-      ctx.lineCap = "round";
-      ctx.stroke();
+      ctx.ellipse(sd * bodyR * 0.25, bh * 0.85, bodyR * 0.1, bodyR * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    // Mouth hole.
+    // Body.
+    const bg = ctx.createRadialGradient(-bodyR * 0.2, -bodyR * 0.3, 0, 0, 0, bw * 1.1);
+    bg.addColorStop(0, "#FFFFFF");
+    bg.addColorStop(1, "#E8E9EC");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Belly highlight.
+    const belly = ctx.createRadialGradient(0, bh * 0.3, 0, 0, bh * 0.3, bh * 0.7);
+    belly.addColorStop(0, "rgba(255,255,255,0.5)");
+    belly.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = belly;
+    ctx.beginPath();
+    ctx.ellipse(0, bh * 0.3, bw * 0.6, bh * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crest.
+    ctx.fillStyle = "#F5F6F8";
+    ctx.beginPath();
+    ctx.moveTo(-bodyR * 0.15, -bh * 0.98);
+    ctx.quadraticCurveTo(0, -bodyR * 1.38, bodyR * 0.2, -bh * 1.03);
+    ctx.quadraticCurveTo(0, -bh * 1.18, -bodyR * 0.15, -bh * 0.98);
+    ctx.closePath();
+    ctx.fill();
+
+    // Mouth hole (the swallow slot) — beak swallows first, then the slot.
     const mh = f.mouth * R * mc;
-    if (mh > 0.3) {
-      const mw = 2 * rx - 0.24 * R;
-      const mx = -mw / 2;
-      const my = -ry + 0.1 * R;
-      const g = ctx.createLinearGradient(0, my, 0, my + mh);
-      g.addColorStop(0, "#030304");
-      g.addColorStop(1, "#101114");
-      ctx.fillStyle = g;
-      rr(ctx, mx, my, mw, mh, Math.min(mw / 2, mh / 2));
+    if (mh > 0) {
+      const mw = bw * 0.55;
+      const my = -bh * 0.85;
+      ctx.fillStyle = "#17181C";
+      rr(ctx, -mw / 2, my, mw, mh, Math.min(mw / 2, mh / 2));
       ctx.fill();
-      if (mh > 4) {
-        const r = Math.min(mw / 2, mh / 2);
-        ctx.beginPath();
-        ctx.moveTo(mx + r, my + mh + 0.5);
-        ctx.lineTo(mx + mw - r, my + mh + 0.5);
-        ctx.strokeStyle = "rgba(255,255,255,0.55)";
-        ctx.lineWidth = 1;
+    }
+
+    // Eyes (bird style: white + black pupil + highlight, or closed/happy).
+    const eyeSpacing = bw * 0.32;
+    const eyeY = bh * 0.02 + 0.28 * R * mc;
+    const eyeR = bw * 0.22;
+    const lx = f.lookX * eyeR * 0.4;
+    const ly = f.lookY * eyeR * 0.3;
+    for (const sd of [-1, 1]) {
+      const ex = sd * eyeSpacing;
+      const happyEye = f.eye === "content";
+      const closedEye = f.eye === "cup";
+      if (happyEye) {
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = Math.max(1, eyeR * 0.25);
         ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(ex, eyeY + eyeR * 0.2, eyeR * 0.7, Math.PI * 1.2, Math.PI * 1.8);
         ctx.stroke();
+      } else if (closedEye) {
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = Math.max(1, eyeR * 0.2);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(ex - eyeR * 0.6, eyeY);
+        ctx.lineTo(ex + eyeR * 0.6, eyeY);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.ellipse(ex, eyeY, eyeR, eyeR * 1.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath();
+        ctx.arc(ex + lx, eyeY + ly, eyeR * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(ex + lx - eyeR * 0.17, eyeY + ly - eyeR * 0.17, eyeR * 0.2, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
-    // Eyes.
-    const ew = R * 0.25;
-    const eh = R * (0.62 - 0.16 * mc);
-    const ey = R * (0.02 + 0.28 * mc);
-    const sp = R * 0.3;
-    const lx = f.lookX * R * (0.34 - 0.08 * mc);
-    const ly = f.lookY * R * (0.16 - 0.09 * mc);
+    // Beak below the eyes (top of the swallow).
+    const beakY = eyeY + eyeR * 1.5;
+    const beakW = bw * 0.18;
+    const beakH = bw * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(0, beakY);
+    ctx.lineTo(-beakW, beakY - beakH);
+    ctx.lineTo(beakW, beakY - beakH);
+    ctx.closePath();
+    ctx.fillStyle = "#2C2C2C";
+    ctx.fill();
+
+    // Wings on the sides.
     for (const sd of [-1, 1]) {
       ctx.save();
-      ctx.translate(sd * sp + lx, ey + ly);
-      drawEye(ctx, f.eye, ew, eh);
+      ctx.translate(sd * bw * 0.85, bh * 0.1);
+      ctx.rotate(sd * 0.15);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, bw * 0.25, bh * 0.55, sd * 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(232,233,236,0.9)";
+      ctx.fill();
       ctx.restore();
     }
 
-    ctx.restore(); // body clip
     ctx.restore(); // transform
   }
 
@@ -446,43 +470,6 @@ export class UploadCanvas {
       ctx.fillStyle = `rgba(52,212,153,${1 - k})`;
       ctx.fill();
     }
-  }
-}
-
-// ── Eye shapes ──────────────────────────────────────────────────────────────
-
-const INK = "#0E0F12";
-
-function drawEye(ctx: CanvasRenderingContext2D, shape: UploadEyeShape, w: number, h: number) {
-  switch (shape) {
-    case "pill":
-      ctx.fillStyle = INK;
-      rr(ctx, -w / 2, -h / 2, w, h, w / 2);
-      ctx.fill();
-      break;
-
-    case "cup": {
-      // Flat top, semicircular bottom.
-      const hh = h * 0.55;
-      ctx.beginPath();
-      ctx.moveTo(-w / 2, -hh / 2);
-      ctx.lineTo(w / 2, -hh / 2);
-      ctx.lineTo(w / 2, hh / 2 - w / 2);
-      ctx.arc(0, hh / 2 - w / 2, w / 2, 0, Math.PI, false);
-      ctx.closePath();
-      ctx.fillStyle = INK;
-      ctx.fill();
-      break;
-    }
-
-    case "content":
-      ctx.beginPath();
-      ctx.arc(0, -h * 0.12, w * 0.85, Math.PI * 0.15, Math.PI * 0.85, false);
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = w * 0.5;
-      ctx.lineCap = "round";
-      ctx.stroke();
-      break;
   }
 }
 
