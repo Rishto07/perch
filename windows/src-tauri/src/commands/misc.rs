@@ -30,6 +30,8 @@ fn launch_dir(path: Option<String>) -> Option<String> {
 
 /// Well-known desktop-app locations for each coding agent, so the click works
 /// even when the CLI was installed without touching PATH.
+/// NOTE: Codex is NOT a desktop app — the "Codex" pill is the ChatGPT desktop
+/// app (in `OpenAI.Codex_*` MSIX packages), not a `codex` CLI.
 fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
     let local = std::env::var("LOCALAPPDATA")
@@ -62,7 +64,21 @@ fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
             ));
             push(local.as_deref(), r"Programs\Claude\Claude.exe", &mut out);
         }
+        // Codex == the ChatGPT desktop app (MSIX `OpenAI.Codex_*`), not a CLI.
         "codex" => {
+            // Direct MSIX package layout (ChatGPT Desktop runs from the package).
+            if let Some(base) = local.as_deref() {
+                let pkg = base.join("Packages");
+                if let Ok(entries) = std::fs::read_dir(&pkg) {
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().to_lowercase();
+                        if name.starts_with("openai.codex") {
+                            out.push(entry.path().join("ChatGPT.exe"));
+                            out.push(entry.path().join("Codex.exe"));
+                        }
+                    }
+                }
+            }
             push(local.as_deref(), r"Programs\Codex\Codex.exe", &mut out);
             push(appdata.as_deref(), r"Codex\Codex.exe", &mut out);
             out.push(std::path::PathBuf::from(
@@ -71,6 +87,7 @@ fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
             out.push(std::path::PathBuf::from(
                 r"C:\Program Files\Codex\codex.exe",
             ));
+            push(local.as_deref(), r"Programs\ChatGPT\ChatGPT.exe", &mut out);
         }
         "opencode" => {
             push(
@@ -81,6 +98,9 @@ fn known_desktop_paths(stem: &str) -> Vec<std::path::PathBuf> {
             push(appdata.as_deref(), r"OpenCode\OpenCode.exe", &mut out);
             out.push(std::path::PathBuf::from(
                 r"C:\Program Files\OpenCode\OpenCode.exe",
+            ));
+            out.push(std::path::PathBuf::from(
+                r"C:\Program Files\OpenCode\opencode.exe",
             ));
         }
         "zcode" => {
@@ -151,14 +171,15 @@ pub(crate) fn open_in_vscode(path: Option<String>) -> bool {
 
 /// Open the agent's own desktop app at the project folder.
 /// `agent` is the task id ("integration_codex" etc.) — the CLI name on PATH is
-/// also accepted directly. NOT falling back to VS Code silently: the user asked
-/// for the agent's app, so a missing agent now reports false (frontend shows
-/// "not found") while logging exactly what was searched.
+/// also accepted directly. Codex means the ChatGPT desktop app (the ChatGPT
+/// brand ships the app; there is no separate "Codex" exe on Windows).
+/// NOT falling back to VS Code silently: a missing agent now reports false
+/// (frontend shows "not found") while logging exactly what was searched.
 #[tauri::command]
 pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
     let binding = agent.trim().to_lowercase();
-    // Claude (VS Code pill) keeps VS Code handling; the generic pill is the
-    // Claude App — launch Claude Desktop, falling back to VS Code.
+    // Claude (VS Code pill) keeps VS Code handling. The generic pill is the
+    // Claude App — launch Claude Desktop, with the CLI only as fallback.
     match binding.as_str() {
         "integration_claude" | "claude" | "claude-code" => {
             return open_in_vscode(path);
@@ -166,16 +187,9 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
         _ => {}
     }
     if binding == "integration_generic" || binding == "generic" {
-        // Claude App: the Claude CLI first (TUI via wt), then Claude Desktop —
-        // and if neither exists, report not found. Never silently open VS Code.
+        // Claude App: desktop app first (Claude Desktop), CLI as fallback.
+        // Never VS Code — that is the separate "VS Code" pill's job.
         let dir = launch_dir(path.clone());
-        if let Some(exe) = find_on_path("claude") {
-            if spawn_agent_cli(&exe, dir.as_deref(), "claude") {
-                log::line("open_agent: launched generic (Claude App) CLI via PATH");
-                return true;
-            }
-            log::line("open_agent: claude CLI on PATH failed to spawn");
-        }
         for candidate in known_desktop_paths("claude") {
             if candidate.is_file() {
                 let mut cmd = Command::new(candidate.clone());
@@ -193,7 +207,14 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
                 }
             }
         }
-        log::line("open_agent: Claude app not found (no claude CLI, no Claude Desktop)");
+        if let Some(exe) = find_on_path("claude") {
+            if spawn_agent_cli(&exe, dir.as_deref(), "claude") {
+                log::line("open_agent: launched generic (Claude App) CLI via PATH");
+                return true;
+            }
+            log::line("open_agent: claude CLI on PATH failed to spawn");
+        }
+        log::line("open_agent: Claude app not found (no Claude Desktop, no claude CLI)");
         return false;
     }
     let stem: &str = match binding.as_str() {
@@ -204,18 +225,7 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
     };
     let dir = launch_dir(path.clone());
 
-    // 1) CLI on PATH (opencode/codex CLIs install shims here).
-    if let Some(exe) = find_on_path(stem) {
-        if spawn_agent_cli(&exe, dir.as_deref(), stem) {
-            log::line(format!(
-                "open_agent: launched {stem} via PATH {}",
-                exe.display()
-            ));
-            return true;
-        }
-        log::line(format!("open_agent: {stem} on PATH failed to spawn"));
-    }
-    // 2) Known desktop-app locations (even without PATH).
+    // 1) Desktop app first — the user asked for the app, not a terminal.
     for candidate in known_desktop_paths(stem) {
         if candidate.is_file() {
             let mut cmd = Command::new(candidate.clone());
@@ -231,6 +241,17 @@ pub(crate) fn open_agent(agent: String, path: Option<String>) -> bool {
                 return true;
             }
         }
+    }
+    // 2) CLI on PATH as a fallback (opencode/codex CLIs install shims here).
+    if let Some(exe) = find_on_path(stem) {
+        if spawn_agent_cli(&exe, dir.as_deref(), stem) {
+            log::line(format!(
+                "open_agent: launched {stem} via PATH {}",
+                exe.display()
+            ));
+            return true;
+        }
+        log::line(format!("open_agent: {stem} on PATH failed to spawn"));
     }
     log::line(format!(
         "open_agent: {stem} not found (PATH or known desktop paths); dir={dir:?}"
