@@ -110,6 +110,8 @@ export const Bridge = {
 
   // ── Other coding agents (Codex, OpenCode, …) ─────────────────────────────
   agentsStatus: () => call<AgentStatus[]>("agents_status"),
+  /** Live process scan: which watched agent CLIs are running right now. */
+  agentProcessScan: () => call<AgentProcessState>("agent_process_scan"),
   /** Diff to show before anything is written. `install: false` previews removal. */
   agentsPreview: (agent: string, install: boolean) =>
     callOrThrow<HookPreview>("agents_preview", { agent, install }),
@@ -206,6 +208,23 @@ export interface AgentStatus {
   hookReady: boolean;
   detail: string;
   canAuto: boolean;
+  /** True when the agent's CLI is currently running (process monitoring). */
+  processActive: boolean;
+  /** How sessions arrive: native hooks | plugin | process monitoring. */
+  integrationMethod: "native hooks" | "plugin" | "process monitoring";
+}
+
+/** One running CLI instance seen by the process monitor. */
+export interface DetectedProcess {
+  pid: number;
+  name: string;
+  count: number;
+}
+
+/** Live process scan result for the island. */
+export interface AgentProcessState {
+  /** agent tag → detected processes */
+  detected: Array<{ agent: string; processes: DetectedProcess[] }>;
 }
 
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */

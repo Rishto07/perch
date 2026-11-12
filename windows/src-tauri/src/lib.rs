@@ -66,6 +66,7 @@ pub fn run() {
             commands::hooks::hooks_preview,
             commands::hooks::hooks_apply,
             commands::agents::agents_status,
+            commands::agents::agent_process_scan,
             commands::agents::agents_preview,
             commands::agents::agents_apply,
             commands::approval::approval_decision,
@@ -106,6 +107,7 @@ pub fn run() {
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
+            agents::monitor::start(handle.clone());
             Ok(())
         })
         .run(tauri::generate_context!())

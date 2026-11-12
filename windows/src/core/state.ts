@@ -19,6 +19,10 @@ export interface AgentTask {
   miniEye?: EyeShape | null;
   pillBadge?: PillBadge | null;
   sessionCwd?: string | null;
+  /** True while a native hook or process scan says the agent is running. */
+  processActive?: boolean;
+  /** How events reach Perch for this agent: native hooks | plugin | process monitoring. */
+  integrationMethod?: "native hooks" | "plugin" | "process monitoring";
 }
 
 export interface ApprovalInfo {
@@ -50,6 +54,17 @@ export interface SearchResult {
   title: string;
   items: ResultItem[];
   note?: string;
+}
+
+/** Live process scan result for the island (mirrors agents::AgentProcessState). */
+export interface AgentProcessState {
+  detected: Array<{ agent: string; processes: DetectedProcess[] }>;
+}
+
+export interface DetectedProcess {
+  pid: number;
+  name: string;
+  count: number;
 }
 
 const task = (

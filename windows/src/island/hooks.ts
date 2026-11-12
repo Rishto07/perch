@@ -9,7 +9,7 @@
 
 import { Bridge, onEvent } from "../core/bridge";
 import { Sound } from "../core/sound";
-import { State } from "../core/state";
+import { State, type AgentProcessState } from "../core/state";
 import type { Island } from "./island";
 
 /** Maps the `agent` payload field to a pill id. Unknown → generic, missing → claude. */
@@ -178,6 +178,59 @@ function clearSession(id: string) {
 
 export function registerHookHandlers(island: Island) {
   void onEvent<HookPayload>("hook", (payload) => handleHook(island, payload));
+  void onEvent<AgentProcessState>("agent-monitor", (state) => reconcileProcesses(state));
+}
+
+/**
+ * Reconcile process-monitor results with Perch state.
+ *
+ * For agents without a native hook (Codex/Zcode/Zed/anything else) a running
+ * CLI is the only signal Perch gets. We surface it as "Session active" and
+ * switch focus to the active agent — but we never invent tool events.
+ */
+function reconcileProcesses(state: AgentProcessState) {
+  const now = performance.now();
+  for (const { agent, processes } of state.detected) {
+    const taskId = taskIdFor(agent);
+    const task = State.tasks.find((t) => t.id === taskId);
+    if (!task) continue;
+    const active = processes.length > 0;
+    if (active) {
+      task.processActive = true;
+      task.integrationMethod = "process monitoring";
+      if (task.state === "idle" && task.steps.length === 0) {
+        // First sighting: show the session instead of "Waiting for session…".
+        State.updateTask(taskId, "working");
+        State.appendStep(taskId, "Session active");
+      }
+      if (shouldAutoFocus(taskId, "weak")) autoFocus(taskId);
+    } else {
+      task.processActive = false;
+      if (task.state === "working" && task.steps[0] === "Session active") {
+        // Process gone and no real hook activity: back to idle, not stuck.
+        State.updateTask(taskId, "idle");
+        task.steps = [];
+        task.stepIndex = 0;
+      }
+    }
+  }
+  // Agents we no longer see running but that were only ever "process active".
+  for (const t of State.tasks) {
+    if (!t.isIntegration) continue;
+    if (t.integrationMethod !== "process monitoring") continue;
+    if (state.detected.some((d) => d.agent === taskIdFor(t.id))) continue;
+    if (t.processActive) {
+      t.processActive = false;
+      if (t.state === "working" && t.steps[0] === "Session active") {
+        State.updateTask(t.id, "idle");
+        t.steps = [];
+        t.stepIndex = 0;
+      }
+    }
+  }
+  // Keep the lastUserFocusAt reference fresh for the grace window.
+  void now;
+  State.notify();
 }
 
 function handleHook(island: Island, payload: HookPayload) {
