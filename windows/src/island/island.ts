@@ -390,6 +390,16 @@ export class Island {
     this.fsm.forceHidden();
   }
 
+  /** Ctrl+Shift+H: wake the island up (hidden → compact → expanded). */
+  wakeNow() {
+    Sound.resume();
+    State.isPinned = false;
+    this.fsm.pinned = false;
+    if (State.mode === "hidden") this.fsm.forceHome();
+    else if (State.mode === "compact") this.fsm.click();
+    else this.expand(State.defaultView());
+  }
+
   /** Alert from the hook server: open on this view. Pinned alerts never auto-close. */
   alert(view: IslandViewName) {
     this.fsm.pinned = State.isPinned;
@@ -614,12 +624,19 @@ export class Island {
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && State.mode === "expanded" && !State.isPinned) this.collapse();
       // Ctrl+H hides the island to the wake strip immediately (minimise).
-      if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "h" || e.key === "H")) {
         e.preventDefault();
         // Don't steal it while typing in the chat input.
         const t = e.target as HTMLElement | null;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
         this.hideNow();
+      }
+      // Ctrl+Shift+H wakes the island back up (from hidden → compact → expanded).
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        this.wakeNow();
       }
       State.lastActivity = performance.now();
     });

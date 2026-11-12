@@ -38,6 +38,7 @@ installs for the current user only — no admin prompt.
 | Drag a file onto the island | Pip turns into a box, swallows it, then offers to answer questions about it |
 | `Esc` | Closes the island to the strip |
 | `Ctrl`+`H` | Hides the island now (minimise) — it peeks back on hover |
+| `Ctrl`+`Shift`+`H` | Wakes the island up again (compact → expanded) |
 | Tray icon | Open, Settings…, Pause, Quit |
 
 Everything else happens on its own: a permission request opens the
