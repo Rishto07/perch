@@ -67,6 +67,12 @@ export interface DetectedProcess {
   count: number;
 }
 
+export interface DetectedProcess {
+  pid: number;
+  name: string;
+  count: number;
+}
+
 const task = (
   id: string, name: string, color: string, source: AgentSource, emote?: BotEmoteName,
 ): AgentTask => ({
