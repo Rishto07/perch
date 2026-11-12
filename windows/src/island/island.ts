@@ -390,8 +390,7 @@ export class Island {
     this.fsm.forceHidden();
   }
 
-  /** Ctrl+Shift+H: wake the island up (hidden → compact → expanded). */
-  wakeNow() {
+  private wakeNow() {
     Sound.resume();
     State.isPinned = false;
     this.fsm.pinned = false;

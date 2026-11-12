@@ -32,6 +32,7 @@ Perch is a small, always-visible companion for AI coding-agent sessions. Pip liv
 - **Agent session visibility** — live pills per agent (Claude Code, Codex, OpenCode, Zcode, Claude App, plus a generic wrapper for anything else).
 - **Permission approval** — Claude Code requests surface in the island with **Deny / Allow**.
 - **Agent launch** — opening an agent starts its desktop app (VS Code for Claude sessions; Codex / OpenCode / Zcode CLIs via terminal where present); double-click a pill to launch, single-click to focus.
+- **Smart agent switching** — when an agent starts or submits a prompt, Perch focuses that pill automatically; manual clicks are respected and alerts never steal the view.
 - **Pip companion** — cursor-following eyes, mini-bot birds that flutter on hover, hop on click, gain personality per agent, and react to state transitions.
 - **Built-in chat** — ask your provider from the island (Claude, OpenAI, Gemini, Mistral, Groq, OpenRouter, Ollama, …). Keys stay in the Keychain / Credential Manager.
 - **File drop** — drop a file on the island; Pip swallows it for chat context or file-drop flows.
@@ -72,7 +73,7 @@ Full release page: [https://github.com/Rishto07/perch/releases/tag/v0.1.1](https
 
 ```text
 Windows:
-5EF220909F365AE5EA951CFFF3FFFDBA0DDF6677E6FA033C7C176B130B068E10
+E82909EE6C03538375C19990D6DD2885B5A893922781E0FF9477F0BEBC570D5A
 
 macOS:
 385A13D12FB9D03A07710C2DF1D34775BA55E64CE114A7B5D625FCD59D67BD54
@@ -107,7 +108,17 @@ If Perch isn't running, hooks exit immediately — your agents are never blocked
 
 ## Agent integrations
 
-Perch routes events by an `agent` tag to a per-agent pill. Claude Code uses `~/.claude/settings.json` hooks through `perch-hook`/`perch-hook.exe` (installed by the app). Codex and OpenCode use one-click installers from Settings; Zcode and anything else (e.g. `freebuff`) route to the **Claude App** pill via a wrapper — see [`agents/README.md`](agents/README.md) for the JSON protocol, transports, and the "never block the agent" contract. Full adapters live in `agents/codex/`, `agents/opencode/`, and `agents/generic/`; `agents/relay/` holds the macOS Unix-socket relay.
+Perch routes events by an `agent` tag to a per-agent pill.
+
+| Agent | Pill | Events |
+|-------|------|--------|
+| Claude Code (`claude`) | VS Code | `~/.claude/settings.json` → `perch-hook` / `perch-hook.exe` (installed by the app) |
+| OpenAI Codex (`codex`) | Codex | `agents/codex/install.sh` / `install.ps1` → same relay with `PERCH_AGENT=codex` |
+| OpenCode (`opencode`) | OpenCode | `agents/opencode/perch.ts` plugin |
+| Zcode (`zcode`) | Zcode | generic wrapper with `-Agent zcode` (no hooks API) |
+| Anything else (`generic`, missing, unknown) | Claude App | `agents/generic/perch-run.sh` / `perch-run.ps1` around any command |
+
+See [`agents/README.md`](agents/README.md) for the JSON protocol, transports, and the "never block the agent" contract. Full adapters live in `agents/codex/`, `agents/opencode/`, and `agents/generic/`; `agents/relay/` holds the macOS Unix-socket relay.
 
 ## Architecture
 
@@ -117,7 +128,7 @@ Perch routes events by an `agent` tag to a per-agent pill. Claude Code uses `~/.
 
 ## Pip
 
-Pip is the animated island character shared by both apps. Cursor-tracking eyes, idle breathing/blinking, emotes, a launch greeting, and 28 sounds. The Windows mini-bot birds additionally follow your cursor, flutter on hover, hop on click (3 rapid clicks = dizzy), and "flock-react" when Pip gets excited — with a small personality per agent (wink/happy/proud/yawn).
+Pip is the animated island character shared by both apps. Cursor-tracking eyes, idle breathing/blinking, emotes, a launch greeting, and 28 sounds. The Windows mini-bot birds additionally follow your cursor, flutter on hover, hop on click (3 rapid clicks = dizzy), and "flock-react" when Pip gets excited — with a small personality per agent (wink/happy/proud/yawn). The `Pill` cards and the pip draw are both generated in code — no images or Lottie.
 
 ## Development
 
@@ -160,7 +171,9 @@ Issues and PRs are welcome — new integrations, emotes, sounds, and bug fixes. 
 
 ## Roadmap
 
-Not yet in v0.1.1: Apple Developer signing + notarization, Windows code signing, a dedicated `xcodebuild test` target, more agent adapters, and distribution/updater improvements.
+- **Planned:** Apple Developer signing + notarization; Windows code signing.
+- **Exploring:** a dedicated `xcodebuild test` target; additional agent adapters.
+- **Future:** distribution/updater improvements (Sparkle-style auto-updates).
 
 ## License
 

@@ -197,11 +197,18 @@ function agentsSection(initial: AgentStatus[]): HTMLElement {
     }));
     for (const st of statuses) {
       const row = h("div", { class: "row" },
-        statusDot(st.installed),
+        statusDot(st.installed || st.processActive),
         h("span", { text: st.name, style: "min-width:90px;font-weight:600" }),
         h("span", { class: "hint", text: st.detail }),
       );
       body.append(row);
+      // Integration method + live process state, so the user can tell native
+      // hooks apart from process monitoring at a glance.
+      body.append(h("div", { class: "row" },
+        h("span", { class: "hint", text: `Method: ${st.integrationMethod}` }),
+        statusDot(st.processActive),
+        h("span", { class: "hint", text: st.processActive ? "CLI running" : "No CLI running" }),
+      ));
       if (!st.canAuto) continue;
       const actions = h("div", { class: "row" });
       const install = h("button", {

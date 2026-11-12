@@ -71,6 +71,12 @@ pub(super) fn opencode_status() -> AgentStatus {
             "OpenCode CLI not on PATH. The plugin still works if you use OpenCode.".into()
         },
         can_auto: true,
+        process_active: cli,
+        integration_method: if installed {
+            "native hooks"
+        } else {
+            "process monitoring"
+        },
     }
 }
 

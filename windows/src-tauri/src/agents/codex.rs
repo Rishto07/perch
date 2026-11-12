@@ -50,6 +50,12 @@ pub(super) fn codex_status() -> AgentStatus {
             "Codex CLI not on PATH. Install it, then come back.".into()
         },
         can_auto: true,
+        process_active: cli,
+        integration_method: if installed {
+            "native hooks"
+        } else {
+            "process monitoring"
+        },
     }
 }
 

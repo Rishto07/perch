@@ -71,8 +71,16 @@ function idleCard(task: AgentTask, openSettings: () => void): HTMLElement {
   const missing = task.id === "integration_claude"
     ? "Hooks not installed"
     : isAgent ? "Waiting for session…" : "Key not configured";
-  const label = error ?? (configured ? (isAgent ? "Waiting for session…" : "Connected · loading…") : missing);
-  const statusColor = error || !configured ? "#F4505E" : "#22C55E";
+  // Process monitoring: a running CLI is a real session, even without hooks.
+  const sessionActive = task.processActive === true;
+  const label = error
+    ? error
+    : sessionActive
+      ? "Session active · process monitoring"
+      : configured
+        ? (isAgent ? "Waiting for session…" : "Connected · loading…")
+        : missing;
+  const statusColor = error || (!configured && !sessionActive) ? "#F4505E" : "#22C55E";
 
   const actions = h("div", { class: "int-actions" });
   // Elite: copy the session project path — paste it anywhere.
